@@ -12,10 +12,10 @@ import os
 # --- Constants ---
 try:
     SCRIPT_DIR = Path(__file__).parent
-    DATA_DIR = SCRIPT_DIR.parent
+    DATA_DIR = Path("D:/RED") # Fixed path as per specification
 except NameError:
     SCRIPT_DIR = Path.cwd()
-    DATA_DIR = SCRIPT_DIR.parent
+    DATA_DIR = Path("D:/RED") # Fixed path as per specification
     print(f"Warning: '__file__' not found. Assuming script dir is {SCRIPT_DIR}")
 
 # --- File Paths ---
@@ -114,8 +114,6 @@ def generate_description(lang_id: str, lang_params: dict, lang_db: dict) -> dict
 
 
 # --- Analysis & Parsing Functions ---
-# Note: parsers now need to be passed to each other to handle recursion
-
 def get_hero_final_stats(hero_id: str, hero_stats_db: dict) -> dict:
     hero_data = hero_stats_db.get(hero_id)
     if not hero_data: return {"max_attack": 0, "name": "N/A"}
@@ -126,6 +124,90 @@ def get_hero_final_stats(hero_id: str, hero_stats_db: dict) -> dict:
             attack_col = col_name
             break
     return {"max_attack": int(hero_data.get(attack_col, 0)), "name": hero_data.get('Name', 'N/A')}
+
+def find_best_lang_id(data_block: dict, lang_key_subset: list) -> str:
+    """
+    Finds the best matching language ID from a subset based on keywords and scoring.
+    """
+    # 1. Define keyword importance and extract them from the data block
+    PRIMARY_KEYWORDS = {'propertyType', 'effectType', 'statusEffect', 'buff'}
+    SECONDARY_KEYWORDS = {'targetType', 'sideAffected', 'applicationChance', 'duration'}
+    
+    keywords = {}
+    all_keys = {k.lower() for k in data_block.keys()}
+
+    for k, v in data_block.items():
+        if isinstance(v, str):
+            keywords[k.lower()] = v.lower()
+
+    # 2. Score each potential language key
+    potential_matches = []
+    for lang_key in lang_key_subset:
+        score = 0
+        normalized_lang_key = lang_key.lower()
+        
+        # --- Scoring Logic ---
+        primary_hits = 0
+        secondary_hits = 0
+        
+        for key, value in keywords.items():
+            if value in normalized_lang_key:
+                # Basic score
+                score += 1
+                # Bonus for full word match
+                if f".{value}" in normalized_lang_key or f"{value}." in normalized_lang_key:
+                    score += 1
+                # Major bonus for primary keywords
+                if key in PRIMARY_KEYWORDS:
+                    score += 5
+                    primary_hits +=1
+                if key in SECONDARY_KEYWORDS:
+                    score += 2
+                    secondary_hits += 1
+
+        # Bonus for value sign (e.g., negative values suggesting 'decrement')
+        for key in all_keys:
+            # Create a list of possible key variations to check for the value
+            base_key_name = key.split('permil')[0].split('value')[0].split('power')[0]
+            possible_keys_to_check = [key, key.capitalize(), key.upper(), base_key_name]
+            
+            val = None
+            for pk in possible_keys_to_check:
+                if pk in data_block:
+                    val = data_block[pk]
+                    break
+            
+            if val is not None and isinstance(val, (int, float)):
+                if val < 0:
+                    if 'decrement' in normalized_lang_key or 'negative' in normalized_lang_key:
+                        score += 2
+                elif val > 0:
+                     if 'increment' in normalized_lang_key or 'positive' in normalized_lang_key:
+                        score += 1
+
+        if score > 0:
+            potential_matches.append({'key': lang_key, 'score': score, 'p_hits': primary_hits, 's_hits': secondary_hits})
+
+    if not potential_matches:
+        return f"SEARCH_FAILED_FOR_{data_block.get('id', 'UNKNOWN_ID')}"
+
+    # 3. Determine the best match
+    # Sort by score (desc), then by primary keyword hits (desc), then secondary (desc), then by key length (asc, as a tie-breaker)
+    potential_matches.sort(key=lambda x: (x['score'], x['p_hits'], x['s_hits'], -len(x['key'])), reverse=True)
+    
+    # Check for ties in the top score and primary hits
+    top_score = potential_matches[0]['score']
+    top_p_hits = potential_matches[0]['p_hits']
+    ties = [m for m in potential_matches if m['score'] == top_score and m['p_hits'] == top_p_hits]
+
+    if len(ties) > 1:
+        # If there's a tie, prefer shorter keys as they are more generic/base
+        ties.sort(key=lambda x: len(x['key']))
+        # Optional: Add logging for tied results to debug later
+        # print(f"\n  - Tie detected for ID {data_block.get('id')}. Top candidates: {[t['key'] for t in ties]}")
+        return ties[0]['key']
+
+    return potential_matches[0]['key']
 
 def parse_direct_effect(special_data, hero_stats, lang_db, game_db, parsers):
     effect_data = special_data.get("directEffect")
@@ -172,21 +254,8 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
             print(f"\n  - WARNING: Property ID '{prop_id}' not found.")
             continue
 
-        keywords = {v.lower() for k, v in prop_details.items() if k in ['propertyType', 'targetType', 'sideAffected'] and isinstance(v, str)}
-        
-        best_match, max_score = None, 0
-        potential_matches = []
-        for key in prop_lang_subset:
-            score = sum(1 for keyword in keywords if keyword in key.lower())
-            if score > max_score:
-                max_score, potential_matches = score, [key]
-            elif score == max_score and max_score > 0:
-                potential_matches.append(key)
-        
-        lang_id = f"SEARCH_FAILED_FOR_{prop_id}"
-        if potential_matches:
-            potential_matches.sort(key=len)
-            lang_id = potential_matches[0]
+        # Use the new find_best_lang_id function
+        lang_id = find_best_lang_id(prop_details, prop_lang_subset)
 
         lang_params = {}
         main_template_text = lang_db.get(lang_id, {}).get("en", "")
@@ -198,29 +267,33 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         for key, value in prop_details.items():
             # --- RECURSION HANDLING ---
             if isinstance(value, list) and "statuseffect" in key.lower():
-                # Delegate the list of status effects to the status effect parser
                 nested_effects.extend(parsers['status_effects'](value, special_data, hero_stats, lang_db, game_db, parsers))
                 continue
             
             # --- DYNAMIC VALUE CALCULATION ---
             for p_holder in all_placeholders:
-                if p_holder in lang_params: continue # Already calculated
+                if p_holder in lang_params: continue
                 normalized_pholder = p_holder.lower()
                 normalized_key = key.lower()
                 
                 if normalized_key.startswith(normalized_pholder):
                     base_key = key
-                    inc_key = key.replace("PerMil", "IncrementPerLevelPerMil") if "PerMil" in key else key.replace("IncrementPerLevel", "") + "IncrementPerLevel"
+                    # Simplified increment key logic, can be improved
+                    inc_key_guess = base_key.replace("PerMil", "IncrementPerLevelPerMil") if "PerMil" in base_key else base_key + "IncrementPerLevel"
+                    inc_key = inc_key_guess if inc_key_guess in prop_details else None
 
                     base_val = prop_details.get(base_key)
-                    inc_val = prop_details.get(inc_key, 0)
+                    inc_val = prop_details.get(inc_key, 0) if inc_key else 0
                     
                     if isinstance(base_val, (int, float)) and isinstance(inc_val, (int, float)):
+                        calculated_val = base_val + inc_val * (max_level - 1)
                         if 'permil' in base_key.lower():
-                            lang_params[p_holder] = round((base_val + inc_val * (max_level - 1)) / 10)
+                             # Keep it as a float for now, formatting can be done later
+                            lang_params[p_holder] = calculated_val / 10
                         else:
-                            lang_params[p_holder] = base_val + inc_val * (max_level - 1)
+                            lang_params[p_holder] = int(calculated_val)
         
+        # Simplified handling for now, can be expanded
         if "FIXEDPOWER" in lang_params:
             if "MAX" in all_placeholders: lang_params["MAX"] = lang_params["FIXEDPOWER"] * 2
             if "MIN" in all_placeholders: lang_params["MIN"] = math.floor(lang_params["FIXEDPOWER"] / 2)
@@ -249,59 +322,65 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         effect_details = game_db['status_effects'].get(effect_id)
         if not effect_details: continue
 
-        keywords = {v.lower() for k, v in {**effect_details, **effect_instance}.items() if k in ['buff', 'statusEffect', 'statusTargetType', 'sideAffected'] and isinstance(v, str)}
-        
-        best_match, max_score = None, 0
-        potential_matches = []
-        for key in se_lang_subset:
-            score = sum(1 for keyword in keywords if keyword in key.lower())
-            if score > max_score:
-                max_score, potential_matches = score, [key]
-            elif score == max_score and max_score > 0:
-                potential_matches.append(key)
-        
-        lang_id = f"SEARCH_FAILED_FOR_{effect_id}"
-        if potential_matches:
-            potential_matches.sort(key=len)
-            lang_id = potential_matches[0]
+        # Combine instance data (like 'turns') with base effect data for a richer keyword source
+        combined_details = {**effect_details, **effect_instance}
+        lang_id = find_best_lang_id(combined_details, se_lang_subset)
 
         lang_params, turns = {}, effect_instance.get("turns", 0)
         if turns > 0: lang_params["TURNS"] = turns
+        
         template_text_en = lang_db.get(lang_id, {}).get("en", "")
         template_text_ja = lang_db.get(lang_id, {}).get("ja", "")
-        placeholders = set(re.findall(r'\{(\w+)\}', template_text_en + template_text_ja))
+        template_text = template_text_en + template_text_ja
+        placeholders = set(re.findall(r'\{(\w+)\}', template_text))
         is_total_damage = "over {TURNS} turns" in template_text_en or "{TURNS}ターンに渡って" in template_text_ja
 
+        # Combine instance and details for value lookup
+        value_source = {**effect_details, **effect_instance}
+
         for p_holder in placeholders:
-            if p_holder == "TURNS": continue
-            # This is a simplified dynamic calculator. Can be expanded.
-            normalized_pholder = p_holder.lower()
-            base_key, inc_key = None, None
-            for key in effect_details:
-                nk = key.lower()
-                if nk.startswith(normalized_pholder):
-                    if "incrementperlevel" in nk: inc_key = key
-                    else: base_key = key
+            if p_holder in lang_params: continue
             
-            if base_key:
-                base = effect_details.get(base_key, 0)
-                inc = effect_details.get(inc_key, 0)
-                if isinstance(base, (int, float)) and isinstance(inc, (int, float)):
-                    val = base + inc * (max_level - 1)
-                    if "permil" in base_key.lower():
+            normalized_pholder = p_holder.lower()
+            found_key = None
+            # Search for a matching key in the value source
+            for key in value_source:
+                if key.lower().startswith(normalized_pholder):
+                    found_key = key
+                    break # Take the first match for now
+
+            if found_key:
+                base_val = value_source.get(found_key, 0)
+                # Simplified increment key logic
+                inc_key_guess = found_key.replace("PerMil", "IncrementPerLevelPerMil") if "PerMil" in found_key else found_key + "IncrementPerLevel"
+                inc_val = value_source.get(inc_key_guess, 0)
+
+                if isinstance(base_val, (int, float)):
+                    val = base_val + inc_val * (max_level - 1)
+                    if "permil" in found_key.lower():
                         val /= 1000
                         if p_holder == "DAMAGE":
                             damage = math.floor(val * hero_stats.get("max_attack", 0))
-                            lang_params[p_holder] = damage * turns if is_total_damage else damage
+                            lang_params[p_holder] = damage * turns if is_total_damage and turns > 0 else damage
                         else:
-                            lang_params[p_holder] = f"{'+' if val >=0 else ''}{val*100:.1f}"
+                            # Keep precision for now, format later
+                            lang_params[p_holder] = val * 100 
                     else: # Fixed value
-                        lang_params[p_holder] = val * turns if is_total_damage else val
+                        lang_params[p_holder] = val * turns if is_total_damage and turns > 0 else int(val)
 
-        descriptions = generate_description(lang_id, lang_params, lang_db)
+        # Re-generate description with potentially rounded/formatted values
+        # This part could be enhanced with a dedicated formatting function
+        formatted_params = {}
+        for k, v in lang_params.items():
+            if isinstance(v, float):
+                # Example formatting: show one decimal place for floats
+                formatted_params[k] = f"{v:+.1f}" if v > 0 and not str(v).startswith('+') else f"{v:.1f}"
+            else:
+                formatted_params[k] = v
+
+        descriptions = generate_description(lang_id, formatted_params, lang_db)
         parsed_items.append({ "id": effect_id, "lang_id": lang_id, "params": json.dumps(lang_params), **descriptions})
     return parsed_items
-
 
 # --- CSV Output Function ---
 def write_results_to_csv(processed_data: list, output_path: Path):
@@ -368,6 +447,7 @@ def main():
             'se_lang_subset': [key for key in language_db if key.startswith("specials.v2.statuseffect.")],
             'prop_lang_subset': [key for key in language_db if key.startswith("specials.v2.property.")]
         }
+        # The parser functions themselves are now passed
         parsers['direct_effect'] = parse_direct_effect
         parsers['properties'] = parse_properties
         parsers['status_effects'] = parse_status_effects
@@ -394,6 +474,7 @@ def main():
                     items_to_check.append(skill_data)
 
                 for item in items_to_check:
+                    if not isinstance(item, dict): continue
                     for key, text in item.items():
                         if isinstance(text, str) and ('description' in key or 'tooltip' in key):
                             found = re.findall(r'(\{\w+\})', text)
