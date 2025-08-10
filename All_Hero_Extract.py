@@ -136,106 +136,87 @@ def format_value(value):
 
 def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int) -> (any, str):
     """
-    Finds and calculates a value for a placeholder by recursively searching a data block.
-    It understands context (e.g., 'chance' vs 'damage') to avoid mismatches.
+    Finds and calculates a value for a placeholder.
+    This version prioritizes direct/simple cases and then handles nested structures.
     """
-    normalized_pholder = p_holder.lower()
-    found_key_info = None # Will store a tuple: (path, context_dict, base_key)
     
-    # --- Context definition ---
-    is_chance_related = 'chance' in normalized_pholder
+    # --- Part 1: Search in the top-level of the data_block ---
     
-    def recursive_find_key(data, path_prefix=''):
-        nonlocal found_key_info
-        if found_key_info: return
+    def search_level(data, placeholder_name):
+        normalized_ph = placeholder_name.lower()
+        
+        # A: Direct prefix match
+        for key in data:
+            if key.lower().startswith(normalized_ph):
+                return key
 
-        if isinstance(data, dict):
-            # Check for matching keys in the current dictionary
-            for key, value in data.items():
-                current_path = f"{path_prefix}{key}"
-                
-                # Context filtering
-                if not is_chance_related and 'chance' in key.lower(): continue
-                if is_chance_related and 'chance' not in key.lower(): continue
+        # B: effectType match for fixedPower etc.
+        if 'effectType' in data and data['effectType'].lower() == normalized_ph:
+            if 'fixedPower' in data: return 'fixedPower'
+            if 'powerMultiplierPerMil' in data: return 'powerMultiplierPerMil'
 
-                if key.lower().startswith(normalized_pholder):
-                    found_key_info = (current_path, data, key)
-                    return
+        # C: Keyword-based inference
+        VALUE_KEYWORDS = ['power', 'value', 'modifier', 'amount', 'damage', 'health']
+        candidate_keys = [k for k,v in data.items() if any(kw in k.lower() for kw in VALUE_KEYWORDS) and 'chance' not in k.lower() and isinstance(v, (int,float))]
+        if len(candidate_keys) == 1:
+            return candidate_keys[0]
+
+        # D: Type-based inference
+        numeric_keys = [k for k, v in data.items() if isinstance(v, (int, float)) and k.lower() not in ['turns', 'maxstack', 'id']]
+        if len(numeric_keys) == 1:
+            return numeric_keys[0]
             
-            # If no direct match, recurse into values
-            for key, value in data.items():
-                if found_key_info: return
-                recursive_find_key(value, path_prefix=f"{path_prefix}{key}.")
+        return None
 
-        elif isinstance(data, list):
-            match = re.match(r'(\w+)(\d+)$', p_holder)
-            if match:
-                base_name, index_str = match.groups()
-                index = int(index_str) - 1
-                if 0 <= index < len(data):
-                    recursive_find_key(data[index], path_prefix=f"{path_prefix}[{index}].")
-            else:
-                for i, item in enumerate(data):
-                    if found_key_info: return
-                    recursive_find_key(item, path_prefix=f"{path_prefix}[{i}].")
+    found_key = search_level(data_block, p_holder)
+    context_data = data_block
 
-    # --- Start Search ---
-    recursive_find_key(data_block)
-
-    # --- Calculation (if a key was found) ---
-    if found_key_info:
-        path, context_data, base_key = found_key_info
-        
-        base_val = context_data.get(base_key, 0)
-        
-        if base_key == 'fixedPower':
-            inc_key = 'fixedPowerIncrementPerLevel'
-        else:
-            inc_key = base_key.replace("PerMil", "IncrementPerLevelPerMil") if "PerMil" in base_key else base_key + "IncrementPerLevel"
-        
-        inc_val = context_data.get(inc_key, 0)
-
-        if not isinstance(base_val, (int, float)): return None, None
-        
-        calculated_val = base_val + inc_val * (max_level - 1)
-        
-        if 'permil' in base_key.lower():
-            return calculated_val / 10, path
-        else:
-            return int(calculated_val), path
+    # --- Part 2: Handle indexed placeholders if top-level search failed ---
+    
+    if not found_key:
+        match = re.match(r'(\w+)(\d+)$', p_holder)
+        if match:
+            base_name, index_str = match.groups()
+            index = int(index_str) - 1
             
-    # --- Fallback to non-recursive inference ---
-    VALUE_KEYWORDS = ['power', 'value', 'modifier', 'amount', 'damage', 'health']
-    candidate_keys = [k for k,v in data_block.items() if any(kw in k.lower() for kw in VALUE_KEYWORDS) and 'chance' not in k.lower() and isinstance(v, (int,float))]
-    if len(candidate_keys) == 1:
-        found_key = candidate_keys[0]
-        base_val = data_block.get(found_key, 0)
-        inc_key = found_key.replace("PerMil", "IncrementPerLevelPerMil") if "PerMil" in found_key else found_key + "IncrementPerLevel"
-        inc_val = data_block.get(inc_key, 0)
-        calculated_val = base_val + inc_val * (max_level - 1)
-        if 'permil' in found_key.lower(): return calculated_val / 10, found_key
-        else: return int(calculated_val), found_key
+            # Search for a list key (e.g., 'directEffects')
+            for key, value in data_block.items():
+                if isinstance(value, list) and 0 <= index < len(value) and isinstance(value[index], dict):
+                    # Search within the specific dictionary in the list
+                    nested_key = search_level(value[index], base_name)
+                    if nested_key:
+                        found_key = nested_key
+                        context_data = value[index] # The context is now the nested dictionary
+                        break # Stop after finding the first match in a list
+            if found_key:
+                 # To provide a meaningful path for debugging
+                found_key_path = f"{key}[{index}].{found_key}"
 
-    return None, None
 
-    # --- Value Calculation ---
-    base_val = data_block.get(found_key, 0)
-    # Determine the increment key based on the found_key
+    # --- Part 3: Calculation ---
+
+    if not found_key:
+        return None, None
+
+    base_val = context_data.get(found_key, 0)
+    
     if found_key == 'fixedPower':
         inc_key = 'fixedPowerIncrementPerLevel'
     else:
         inc_key = found_key.replace("PerMil", "IncrementPerLevelPerMil") if "PerMil" in found_key else found_key + "IncrementPerLevel"
     
-    inc_val = data_block.get(inc_key, 0)
-    
-    if not isinstance(base_val, (int, float)): return None, None
+    inc_val = context_data.get(inc_key, 0)
 
+    if not isinstance(base_val, (int, float)): return None, None
+    
     calculated_val = base_val + inc_val * (max_level - 1)
     
+    display_key = found_key_path if 'found_key_path' in locals() else found_key
+
     if 'permil' in found_key.lower():
-        return calculated_val / 10, found_key
+        return calculated_val / 10, display_key
     else:
-        return int(calculated_val), found_key
+        return int(calculated_val), display_key
 
 def find_best_lang_id(data_block: dict, lang_key_subset: list) -> str:
     """
