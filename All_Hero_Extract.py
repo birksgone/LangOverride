@@ -29,6 +29,25 @@ BATTLE_PATH = DATA_DIR / "battle.json"
 OUTPUT_CSV_PATH = SCRIPT_DIR / "hero_skill_output.csv"
 
 
+def flatten_json(y):
+    """ Flattens a nested dictionary and list structure. """
+    out = {}
+
+    def flatten(x, name=''):
+        if type(x) is dict:
+            for a in x:
+                flatten(x[a], name + a + '_')
+        elif type(x) is list:
+            i = 0
+            for a in x:
+                flatten(a, name + str(i) + '_')
+                i += 1
+        else:
+            out[name[:-1]] = x
+
+    flatten(y)
+    return out
+
 # --- Data Loading & Helper Functions ---
 def read_csv_to_dict(file_path: Path) -> dict:
     if not file_path.exists(): raise FileNotFoundError(f"CSV not found: {file_path}")
@@ -136,87 +155,79 @@ def format_value(value):
 
 def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int) -> (any, str):
     """
-    Finds and calculates a value for a placeholder.
-    This version prioritizes direct/simple cases and then handles nested structures.
+    Finds and calculates a value for a placeholder using a flattened JSON structure.
     """
-    
-    # --- Part 1: Search in the top-level of the data_block ---
-    
-    def search_level(data, placeholder_name):
-        normalized_ph = placeholder_name.lower()
-        
-        # A: Direct prefix match
-        for key in data:
-            if key.lower().startswith(normalized_ph):
-                return key
-
-        # B: effectType match for fixedPower etc.
-        if 'effectType' in data and data['effectType'].lower() == normalized_ph:
-            if 'fixedPower' in data: return 'fixedPower'
-            if 'powerMultiplierPerMil' in data: return 'powerMultiplierPerMil'
-
-        # C: Keyword-based inference
-        VALUE_KEYWORDS = ['power', 'value', 'modifier', 'amount', 'damage', 'health']
-        candidate_keys = [k for k,v in data.items() if any(kw in k.lower() for kw in VALUE_KEYWORDS) and 'chance' not in k.lower() and isinstance(v, (int,float))]
-        if len(candidate_keys) == 1:
-            return candidate_keys[0]
-
-        # D: Type-based inference
-        numeric_keys = [k for k, v in data.items() if isinstance(v, (int, float)) and k.lower() not in ['turns', 'maxstack', 'id']]
-        if len(numeric_keys) == 1:
-            return numeric_keys[0]
-            
-        return None
-
-    found_key = search_level(data_block, p_holder)
-    context_data = data_block
-
-    # --- Part 2: Handle indexed placeholders if top-level search failed ---
-    
-    if not found_key:
-        match = re.match(r'(\w+)(\d+)$', p_holder)
-        if match:
-            base_name, index_str = match.groups()
-            index = int(index_str) - 1
-            
-            # Search for a list key (e.g., 'directEffects')
-            for key, value in data_block.items():
-                if isinstance(value, list) and 0 <= index < len(value) and isinstance(value[index], dict):
-                    # Search within the specific dictionary in the list
-                    nested_key = search_level(value[index], base_name)
-                    if nested_key:
-                        found_key = nested_key
-                        context_data = value[index] # The context is now the nested dictionary
-                        break # Stop after finding the first match in a list
-            if found_key:
-                 # To provide a meaningful path for debugging
-                found_key_path = f"{key}[{index}].{found_key}"
-
-
-    # --- Part 3: Calculation ---
-
-    if not found_key:
+    if not isinstance(data_block, dict):
         return None, None
 
-    base_val = context_data.get(found_key, 0)
+    flat_data = flatten_json(data_block)
+    normalized_pholder = p_holder.lower()
     
-    if found_key == 'fixedPower':
-        inc_key = 'fixedPowerIncrementPerLevel'
+    # --- Context definition ---
+    is_chance_related = 'chance' in normalized_pholder
+    
+    # --- Indexed Placeholder Handling (e.g., POWER1) ---
+    ph_base_name = normalized_pholder
+    ph_index = None
+    match = re.match(r'(\w+)(\d+)$', normalized_pholder)
+    if match:
+        ph_base_name, index_str = match.groups()
+        ph_index = int(index_str) - 1
+
+    # --- Search in flattened data ---
+    candidate_keys = []
+    for key, value in flat_data.items():
+        # Context filtering
+        if not is_chance_related and 'chance' in key.lower(): continue
+        if is_chance_related and 'chance' not in key.lower(): continue
+        
+        # Base name must be part of the key
+        if ph_base_name in key.lower():
+            # If there's an index, it must also match
+            if ph_index is not None:
+                if f"_{ph_index}_" in key or key.endswith(f"_{ph_index}"):
+                    candidate_keys.append(key)
+            else:
+                candidate_keys.append(key)
+
+    # Find the best key among candidates (prefer shorter key if multiple matches)
+    if not candidate_keys:
+        return None, None
+    
+    # Prioritize keys containing 'power' or 'value' if placeholder suggests it
+    priority_keywords = ['power', 'value', 'modifier', 'fixed']
+    priority_keys = [k for k in candidate_keys if any(kw in k.lower() for kw in priority_keywords)]
+    
+    if priority_keys:
+        found_key = min(priority_keys, key=len)
     else:
-        inc_key = found_key.replace("PerMil", "IncrementPerLevelPerMil") if "PerMil" in found_key else found_key + "IncrementPerLevel"
+        found_key = min(candidate_keys, key=len)
+
+    # --- Calculation ---
+    base_val = flat_data.get(found_key, 0)
     
-    inc_val = context_data.get(inc_key, 0)
+    # Dynamically find the increment key in the flattened structure
+    inc_key = ""
+    if 'fixedpower' in found_key.lower():
+        inc_key_pattern = found_key.lower().replace('fixedpower', 'fixedpowerincrementperlevel')
+    else:
+        inc_key_pattern = found_key.lower().replace('permil', 'incrementperlevelpermil')
+
+    for k in flat_data.keys():
+        if k.lower() == inc_key_pattern:
+            inc_key = k
+            break
+            
+    inc_val = flat_data.get(inc_key, 0)
 
     if not isinstance(base_val, (int, float)): return None, None
     
     calculated_val = base_val + inc_val * (max_level - 1)
     
-    display_key = found_key_path if 'found_key_path' in locals() else found_key
-
     if 'permil' in found_key.lower():
-        return calculated_val / 10, display_key
+        return calculated_val / 10, found_key
     else:
-        return int(calculated_val), display_key
+        return int(calculated_val), found_key
 
 def find_best_lang_id(data_block: dict, lang_key_subset: list) -> str:
     """
@@ -330,19 +341,54 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         extra_template_text = lang_db.get(extra_lang_id, {}).get("en", "")
         all_placeholders = set(re.findall(r'\{(\w+)\}', main_template_text + extra_template_text))
         
-        for p_holder in all_placeholders:
+        # --- NEW: Process placeholders in a specific order to handle dependencies ---
+        
+        # Define the order: base values first, then derived values
+        # Unordered placeholders will be processed last.
+        processing_order = ['FIXEDPOWER', 'DAMAGE', 'POWER', 'VALUE'] # Add other base placeholders here
+        
+        # Separate placeholders into ordered and unordered lists
+        ordered_ph = [p for p in processing_order if p in all_placeholders]
+        unordered_ph = list(all_placeholders - set(ordered_ph) - {'MIN', 'MAX'}) # Exclude derived ones for now
+        
+        # Process base values first
+        for p_holder in ordered_ph + unordered_ph:
             if p_holder in lang_params: continue
             value, _ = find_and_calculate_value(p_holder, prop_details, max_level)
             if value is not None:
                 lang_params[p_holder] = value
+        
+        # --- NEW: Calculate derived values like MIN and MAX ---
+        if 'MAX' in all_placeholders and 'FIXEDPOWER' in lang_params:
+            lang_params['MAX'] = lang_params['FIXEDPOWER'] * 2
+        
+        if 'MIN' in all_placeholders and 'FIXEDPOWER' in lang_params:
+            lang_params['MIN'] = math.floor(lang_params['FIXEDPOWER'] / 2)
 
+        # --- Recursion & Formatting ---
         nested_effects = []
         if 'statusEffectsPerHit' in prop_details:
             nested_effects.extend(parsers['status_effects'](prop_details['statusEffectsPerHit'], special_data, hero_stats, lang_db, game_db, parsers))
         if 'statusEffects' in prop_details:
              nested_effects.extend(parsers['status_effects'](prop_details['statusEffects'], special_data, hero_stats, lang_db, game_db, parsers))
 
-        formatted_params = {k: format_value(v) for k, v in lang_params.items()}
+        # Final formatting
+        formatted_params = {}
+        template_str_for_check = main_template_text + extra_template_text
+        for k, v in lang_params.items():
+            formatted_val = format_value(v)
+            is_percentage = f"{{{k}}}" in template_str_for_check and "%" in template_str_for_check
+            
+            if isinstance(v, (int, float)) and v > 0 and k not in ["TURNS", "DAMAGE"] and is_percentage:
+                 formatted_params[k] = f"+{formatted_val}"
+            else:
+                 formatted_params[k] = formatted_val
+        
+        for p in all_placeholders:
+             if p not in formatted_params:
+                 formatted_params[p] = f"{{{p}}}"
+
+
         main_desc = generate_description(lang_id, formatted_params, lang_db)
         tooltip_desc = generate_description(extra_lang_id, formatted_params, lang_db) if extra_lang_id in lang_db else {"en": "", "ja": ""}
 
