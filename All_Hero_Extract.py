@@ -231,62 +231,62 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int) ->
 
 def find_best_lang_id(data_block: dict, lang_key_subset: list) -> str:
     """
-    Finds the best matching language ID from a subset based on keywords and scoring.
+    Finds the best matching language ID using a decisive primary keyword and secondary scoring.
+    Includes debug prints to trace the logic.
     """
-    PRIMARY_KEYWORDS = {'propertyType', 'effectType', 'statusEffect', 'buff'}
-    SECONDARY_KEYWORDS = {'targetType', 'sideAffected', 'applicationChance', 'duration'}
-    
     keywords = {k.lower(): v.lower() for k, v in data_block.items() if isinstance(v, str)}
     
+    # --- Step 1: Identify the single most important keyword (the "super key") ---
+    primary_keyword = keywords.get('propertytype') or keywords.get('statuseffect')
+    
+    # --- Optional Debug Print ---
+    # print(f"\nProcessing ID: {data_block.get('id', 'N/A')}, Primary Keyword: {primary_keyword}")
+
     potential_matches = []
     for lang_key in lang_key_subset:
         score = 0
         normalized_lang_key = lang_key.lower()
-        
-        primary_hits, secondary_hits = 0, 0
-        
-        for key, value in keywords.items():
-            if value in normalized_lang_key:
-                score += 1 # Basic score
-                if f".{value}" in normalized_lang_key or f"{value}." in normalized_lang_key:
-                    score += 1 # Bonus for full word match
-                if key in PRIMARY_KEYWORDS:
-                    score += 5
-                    primary_hits +=1
-                if key in SECONDARY_KEYWORDS:
-                    score += 2
-                    secondary_hits += 1
 
-        # Bonus for value sign
-        for key, val in data_block.items():
-            if isinstance(val, (int, float)):
-                if val < 0 and ('decrement' in normalized_lang_key or 'negative' in normalized_lang_key):
-                    score += 2
-                elif val > 0 and ('increment' in normalized_lang_key or 'positive' in normalized_lang_key):
-                    score += 1
+        # --- Step 2: Core Scoring - give a massive, decisive bonus to the primary keyword ---
+        if primary_keyword and primary_keyword in normalized_lang_key:
+            score += 100  # This bonus should outweigh all other small scores combined
+        # If a primary keyword exists but doesn't match, this lang_key is likely wrong. 
+        # We can continue scoring for edge cases, but it will have a hard time winning.
         
+        # --- Step 3: Secondary Scoring for tie-breaking and refinement ---
+        # Add smaller scores for other descriptive keywords
+        other_keywords = {'effecttype', 'targettype', 'sideaffected', 'buff'}
+        for key_name in other_keywords:
+            if value := keywords.get(key_name):
+                if value in normalized_lang_key:
+                    score += 5 # Add a small bonus for other matches
+
         # Bonus for fixedPower
-        if 'fixedpower' in normalized_lang_key:
-            if 'fixedPower' in data_block or data_block.get('hasFixedPower'):
-                score += 3 # Add bonus if 'fixedPower' related keys exist in data
+        if 'fixedpower' in normalized_lang_key and ('fixedPower' in data_block or data_block.get('hasFixedPower')):
+            score += 3
+        
+        # Bonus for value sign
+        for val in data_block.values():
+            if isinstance(val, (int, float)) and val < 0 and 'decrement' in normalized_lang_key:
+                score += 2
 
         if score > 0:
-            potential_matches.append({'key': lang_key, 'score': score, 'p_hits': primary_hits, 's_hits': secondary_hits})
+            potential_matches.append({'key': lang_key, 'score': score})
+            # --- Optional Debug Print for high-score candidates ---
+            # if score > 50:
+            #    print(f"  -> Candidate: {lang_key:<100} | Score: {score}")
 
     if not potential_matches:
         return f"SEARCH_FAILED_FOR_{data_block.get('id', 'UNKNOWN_ID')}"
 
-    potential_matches.sort(key=lambda x: (x['score'], x['p_hits'], x['s_hits'], -len(x['key'])), reverse=True)
+    # Sort by score (desc), then by key length (asc) to prefer more generic base keys in case of a tie
+    potential_matches.sort(key=lambda x: (-x['score'], len(x['key'])))
     
-    top_score = potential_matches[0]['score']
-    top_p_hits = potential_matches[0]['p_hits']
-    ties = [m for m in potential_matches if m['score'] == top_score and m['p_hits'] == top_p_hits]
+    best_match = potential_matches[0]
+    # --- Optional Debug Print for the winner ---
+    # print(f"  => Best Match: {best_match['key']} (Score: {best_match['score']})")
 
-    if len(ties) > 1:
-        ties.sort(key=lambda x: len(x['key']))
-        return ties[0]['key']
-
-    return potential_matches[0]['key']
+    return best_match['key']
 
 def parse_direct_effect(special_data, hero_stats, lang_db, game_db, parsers):
     effect_data = special_data.get("directEffect")
