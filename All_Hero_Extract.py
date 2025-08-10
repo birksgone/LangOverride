@@ -155,70 +155,67 @@ def format_value(value):
 
 def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, is_modifier: bool = False) -> (any, str):
     """
-    Finds and calculates a value for a placeholder using a flattened JSON structure.
-    Accepts an is_modifier flag to apply special calculation logic.
+    Finds and calculates a value for a placeholder using a flattened JSON structure
+    and flexible word-matching logic.
     """
-    # --- Handle fixed value placeholders first ---
     if p_holder.upper() == 'MAXSTACK':
         return 10, 'Fixed Value'
 
-    if not isinstance(data_block, dict):
-        return None, None
+    if not isinstance(data_block, dict): return None, None
 
     flat_data = flatten_json(data_block)
     normalized_pholder = p_holder.lower()
     
     is_chance_related = 'chance' in normalized_pholder
     
-    ph_base_name = normalized_pholder
-    ph_index = None
+    # --- Flexible Keyword Matching ---
+    # Split placeholder like 'ManaRegen' into ['mana', 'regen']
+    ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', p_holder)]
+    if not ph_keywords: ph_keywords = [normalized_pholder] # Fallback for simple names like 'MAX'
+
+    ph_base_name, ph_index = normalized_pholder, None
     match = re.match(r'(\w+)(\d+)$', normalized_pholder)
     if match:
-        ph_base_name, index_str = match.groups()
+        base, index_str = match.groups()
+        ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', base.capitalize())]
+        if not ph_keywords: ph_keywords = [base]
         ph_index = int(index_str) - 1
-
-    candidate_keys = []
-    for key, value in flat_data.items():
-        if not is_chance_related and 'chance' in key.lower(): continue
-        if is_chance_related and 'chance' not in key.lower(): continue
         
-        if ph_base_name in key.lower():
+    candidate_keys = []
+    for key in flat_data:
+        key_lower = key.lower()
+        
+        # Context filtering
+        if not is_chance_related and 'chance' in key_lower: continue
+        if is_chance_related and 'chance' not in key_lower: continue
+
+        # Replace variations to normalize keys for matching
+        search_key = key_lower.replace('generation', 'regen').replace('value', 'power')
+
+        # Check if all parts of the placeholder name are in the key
+        if all(part in search_key for part in ph_keywords):
             if ph_index is not None:
-                if f"_{ph_index}_" in key or key.endswith(f"_{ph_index}"):
+                if f"_{ph_index}_" in key_lower or key_lower.endswith(f"_{ph_index}"):
                     candidate_keys.append(key)
             else:
                 candidate_keys.append(key)
-
-    if not candidate_keys:
-        return None, None
     
-    priority_keywords = ['power', 'value', 'modifier', 'fixed', 'multiplier']
+    if not candidate_keys: return None, None
+    
+    # Prioritize keys that are more specific
+    priority_keywords = ['power', 'modifier', 'fixed', 'multiplier', 'permil']
     priority_keys = [k for k in candidate_keys if any(kw in k.lower() for kw in priority_keywords)]
     
-    if priority_keys:
-        found_key = min(priority_keys, key=len)
-    else:
-        found_key = min(candidate_keys, key=len)
+    found_key = min(priority_keys, key=len) if priority_keys else min(candidate_keys, key=len)
 
     # --- Calculation ---
     base_val = flat_data.get(found_key, 0)
-    
-    inc_key = ""
-    if 'fixedpower' in found_key.lower():
-        inc_key_pattern = found_key.lower().replace('fixedpower', 'fixedpowerincrementperlevel')
-    else:
-        inc_key_pattern = found_key.lower().replace('permil', 'incrementperlevelpermil')
-
-    for k in flat_data.keys():
-        if k.lower() == inc_key_pattern:
-            inc_key = k
-            break
-            
+    inc_key_pattern = found_key.lower().replace("permil", "incrementperlevelpermil").replace('fixedpower', 'fixedpowerincrementperlevel')
+    inc_key = next((k for k in flat_data if k.lower() == inc_key_pattern), None)
     inc_val = flat_data.get(inc_key, 0)
 
     if not isinstance(base_val, (int, float)): return None, None
     
-    # --- NEW: Switch calculation based on is_modifier flag ---
     if is_modifier:
         calculated_val = ((base_val - 1000) + (inc_val * (max_level - 1))) / 10
         return calculated_val, found_key
@@ -381,7 +378,8 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
             formatted_val = format_value(v)
             is_percentage = f"{{{k}}}" in template_str_for_check and "%" in template_str_for_check
             
-            if isinstance(v, (int, float)) and v > 0 and k.upper() not in ["TURNS", "DAMAGE", "MAX", "MIN", "FIXEDPOWER", "BASEPOWER"] and is_percentage:
+            # UPDATED: Added MAXSTACK to the exclusion list for the '+' sign
+            if isinstance(v, (int, float)) and v > 0 and k.upper() not in ["TURNS", "DAMAGE", "MAX", "MIN", "FIXEDPOWER", "BASEPOWER", "MAXSTACK"] and is_percentage:
                  formatted_params[k] = f"+{formatted_val}"
             else:
                  formatted_params[k] = formatted_val
@@ -459,8 +457,8 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
             formatted_val = format_value(v)
             is_percentage = f"{{{k}}}" in template_str_for_check and "%" in template_str_for_check
             
-            # Refined '+' sign logic
-            if isinstance(v, (int, float)) and v > 0 and k.upper() not in ["TURNS", "DAMAGE", "MAX", "MIN", "FIXEDPOWER"] and is_percentage:
+            # UPDATED: Added MAXSTACK to the exclusion list for the '+' sign
+            if isinstance(v, (int, float)) and v > 0 and k.upper() not in ["TURNS", "DAMAGE", "MAX", "MIN", "FIXEDPOWER", "MAXSTACK"] and is_percentage:
                  formatted_params[k] = f"+{formatted_val}"
             else:
                  formatted_params[k] = formatted_val
