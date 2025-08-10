@@ -141,13 +141,20 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int) ->
     Returns the calculated value and the key it was derived from.
     """
     normalized_pholder = p_holder.lower()
+    found_key = None
     
     # --- Step A: Direct prefix match ---
-    found_key = None
     for key in data_block:
         if key.lower().startswith(normalized_pholder):
             found_key = key
             break
+
+    # --- Special handling for effectType-based placeholders (like HEALTHBOOST) ---
+    if not found_key and 'effectType' in data_block and data_block['effectType'].lower() == normalized_pholder:
+        if 'fixedPower' in data_block:
+            found_key = 'fixedPower'
+        elif 'powerMultiplierPerMil' in data_block:
+            found_key = 'powerMultiplierPerMil'
 
     # --- Step B: Keyword-based inference ---
     if not found_key:
@@ -159,7 +166,6 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int) ->
     # --- Step C: Type-based inference ---
     if not found_key:
         numeric_keys = [k for k, v in data_block.items() if isinstance(v, (int, float))]
-        # Exclude common non-value keys to improve accuracy
         numeric_keys = [k for k in numeric_keys if k.lower() not in ['turns', 'maxstack', 'id']] 
         if len(numeric_keys) == 1:
             found_key = numeric_keys[0]
@@ -169,8 +175,13 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int) ->
 
     # --- Value Calculation ---
     base_val = data_block.get(found_key, 0)
-    inc_key_guess = found_key.replace("PerMil", "IncrementPerLevelPerMil") if "PerMil" in found_key else found_key + "IncrementPerLevel"
-    inc_val = data_block.get(inc_key_guess, 0)
+    # Determine the increment key based on the found_key
+    if found_key == 'fixedPower':
+        inc_key = 'fixedPowerIncrementPerLevel'
+    else:
+        inc_key = found_key.replace("PerMil", "IncrementPerLevelPerMil") if "PerMil" in found_key else found_key + "IncrementPerLevel"
+    
+    inc_val = data_block.get(inc_key, 0)
     
     if not isinstance(base_val, (int, float)): return None, None
 
@@ -185,35 +196,23 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list) -> str:
     """
     Finds the best matching language ID from a subset based on keywords and scoring.
     """
-    # 1. Define keyword importance and extract them from the data block
     PRIMARY_KEYWORDS = {'propertyType', 'effectType', 'statusEffect', 'buff'}
     SECONDARY_KEYWORDS = {'targetType', 'sideAffected', 'applicationChance', 'duration'}
     
-    keywords = {}
-    all_keys = {k.lower() for k in data_block.keys()}
-
-    for k, v in data_block.items():
-        if isinstance(v, str):
-            keywords[k.lower()] = v.lower()
-
-    # 2. Score each potential language key
+    keywords = {k.lower(): v.lower() for k, v in data_block.items() if isinstance(v, str)}
+    
     potential_matches = []
     for lang_key in lang_key_subset:
         score = 0
         normalized_lang_key = lang_key.lower()
         
-        # --- Scoring Logic ---
-        primary_hits = 0
-        secondary_hits = 0
+        primary_hits, secondary_hits = 0, 0
         
         for key, value in keywords.items():
             if value in normalized_lang_key:
-                # Basic score
-                score += 1
-                # Bonus for full word match
+                score += 1 # Basic score
                 if f".{value}" in normalized_lang_key or f"{value}." in normalized_lang_key:
-                    score += 1
-                # Major bonus for primary keywords
+                    score += 1 # Bonus for full word match
                 if key in PRIMARY_KEYWORDS:
                     score += 5
                     primary_hits +=1
@@ -221,25 +220,18 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list) -> str:
                     score += 2
                     secondary_hits += 1
 
-        # Bonus for value sign (e.g., negative values suggesting 'decrement')
-        for key in all_keys:
-            # Create a list of possible key variations to check for the value
-            base_key_name = key.split('permil')[0].split('value')[0].split('power')[0]
-            possible_keys_to_check = [key, key.capitalize(), key.upper(), base_key_name]
-            
-            val = None
-            for pk in possible_keys_to_check:
-                if pk in data_block:
-                    val = data_block[pk]
-                    break
-            
-            if val is not None and isinstance(val, (int, float)):
-                if val < 0:
-                    if 'decrement' in normalized_lang_key or 'negative' in normalized_lang_key:
-                        score += 2
-                elif val > 0:
-                     if 'increment' in normalized_lang_key or 'positive' in normalized_lang_key:
-                        score += 1
+        # Bonus for value sign
+        for key, val in data_block.items():
+            if isinstance(val, (int, float)):
+                if val < 0 and ('decrement' in normalized_lang_key or 'negative' in normalized_lang_key):
+                    score += 2
+                elif val > 0 and ('increment' in normalized_lang_key or 'positive' in normalized_lang_key):
+                    score += 1
+        
+        # Bonus for fixedPower
+        if 'fixedpower' in normalized_lang_key:
+            if 'fixedPower' in data_block or data_block.get('hasFixedPower'):
+                score += 3 # Add bonus if 'fixedPower' related keys exist in data
 
         if score > 0:
             potential_matches.append({'key': lang_key, 'score': score, 'p_hits': primary_hits, 's_hits': secondary_hits})
@@ -247,20 +239,14 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list) -> str:
     if not potential_matches:
         return f"SEARCH_FAILED_FOR_{data_block.get('id', 'UNKNOWN_ID')}"
 
-    # 3. Determine the best match
-    # Sort by score (desc), then by primary keyword hits (desc), then secondary (desc), then by key length (asc, as a tie-breaker)
     potential_matches.sort(key=lambda x: (x['score'], x['p_hits'], x['s_hits'], -len(x['key'])), reverse=True)
     
-    # Check for ties in the top score and primary hits
     top_score = potential_matches[0]['score']
     top_p_hits = potential_matches[0]['p_hits']
     ties = [m for m in potential_matches if m['score'] == top_score and m['p_hits'] == top_p_hits]
 
     if len(ties) > 1:
-        # If there's a tie, prefer shorter keys as they are more generic/base
         ties.sort(key=lambda x: len(x['key']))
-        # Optional: Add logging for tied results to debug later
-        # print(f"\n  - Tie detected for ID {data_block.get('id')}. Top candidates: {[t['key'] for t in ties]}")
         return ties[0]['key']
 
     return potential_matches[0]['key']
@@ -310,7 +296,7 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
             print(f"\n  - WARNING: Property ID '{prop_id}' not found.")
             continue
 
-        lang_id = find_best_lang_id(prop_details, prop_lang_subset)
+        lang_id = parsers['find_best_lang_id'](prop_details, prop_lang_subset)
         lang_params = {}
         
         main_template_text = lang_db.get(lang_id, {}).get("en", "")
@@ -330,7 +316,6 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         if 'statusEffects' in prop_details:
              nested_effects.extend(parsers['status_effects'](prop_details['statusEffects'], special_data, hero_stats, lang_db, game_db, parsers))
 
-        # Use the new format_value function
         formatted_params = {k: format_value(v) for k, v in lang_params.items()}
         main_desc = generate_description(lang_id, formatted_params, lang_db)
         tooltip_desc = generate_description(extra_lang_id, formatted_params, lang_db) if extra_lang_id in lang_db else {"en": "", "ja": ""}
@@ -356,7 +341,7 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         if not effect_details: continue
 
         combined_details = {**effect_details, **effect_instance}
-        lang_id = find_best_lang_id(combined_details, se_lang_subset)
+        lang_id = parsers['find_best_lang_id'](combined_details, se_lang_subset)
 
         lang_params = {}
         if (turns := effect_instance.get("turns", 0)) > 0: 
@@ -380,14 +365,11 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
                 else:
                     lang_params[p_holder] = value
         
-        # Use the new format_value function
         formatted_params = {}
-        # Check the template string to see if a placeholder is associated with a percentage sign
         template_str_for_check = lang_db.get(lang_id,{}).get("en","")
         
         for k, v in lang_params.items():
             formatted_val = format_value(v)
-            # Add sign for positive percentage values, but not for TURNS etc.
             is_percentage = f"{{{k}}}" in template_str_for_check and "%" in template_str_for_check
             
             if isinstance(v, (int, float)) and v > 0 and k not in ["TURNS", "DAMAGE"] and is_percentage:
@@ -395,10 +377,9 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
             else:
                  formatted_params[k] = formatted_val
         
-        # Ensure all params have a value for the final generate_description call
         for p in placeholders:
             if p not in formatted_params:
-                formatted_params[p] = f"{{{p}}}" # Keep it as a placeholder if not found
+                formatted_params[p] = f"{{{p}}}"
 
         descriptions = generate_description(lang_id, formatted_params, lang_db)
         parsed_items.append({ "id": effect_id, "lang_id": lang_id, "params": json.dumps(lang_params), **descriptions})
@@ -469,7 +450,7 @@ def main():
             'se_lang_subset': [key for key in language_db if key.startswith("specials.v2.statuseffect.")],
             'prop_lang_subset': [key for key in language_db if key.startswith("specials.v2.property.")]
         }
-        # The parser functions themselves are now passed
+        parsers['find_best_lang_id'] = find_best_lang_id
         parsers['direct_effect'] = parse_direct_effect
         parsers['properties'] = parse_properties
         parsers['status_effects'] = parse_status_effects
@@ -479,7 +460,7 @@ def main():
         write_results_to_csv(final_hero_data, OUTPUT_CSV_PATH)
         print(f"\nProcess complete. Output saved to {OUTPUT_CSV_PATH}")
 
-        # --- NEW: Unresolved Placeholder Summary ---
+        # --- Unresolved Placeholder Summary ---
         print("\n--- Analyzing unresolved placeholders in final output ---")
         from collections import Counter
         unresolved_counter = Counter()
