@@ -393,6 +393,12 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         main_desc = generate_description(lang_id, formatted_params, lang_db)
         tooltip_desc = generate_description(extra_lang_id, formatted_params, lang_db) if extra_lang_id in lang_db else {"en": "", "ja": ""}
 
+        # --- NEW: Clean up excessive newlines ---
+        main_desc['en'] = re.sub(r'\n\s*\n', '\n', main_desc['en']).strip()
+        main_desc['ja'] = re.sub(r'\n\s*\n', '\n', main_desc['ja']).strip()
+        tooltip_desc['en'] = re.sub(r'\n\s*\n', '\n', tooltip_desc['en']).strip()
+        tooltip_desc['ja'] = re.sub(r'\n\s*\n', '\n', tooltip_desc['ja']).strip()
+
         parsed_items.append({
             "id": prop_id, "lang_id": lang_id,
             "description_en": main_desc["en"], "description_ja": main_desc["ja"],
@@ -464,6 +470,11 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
                 formatted_params[p] = f"{{{p}}}"
 
         descriptions = generate_description(lang_id, formatted_params, lang_db)
+        
+        # --- NEW: Clean up excessive newlines ---
+        descriptions['en'] = re.sub(r'\n\s*\n', '\n', descriptions['en']).strip()
+        descriptions['ja'] = re.sub(r'\n\s*\n', '\n', descriptions['ja']).strip()
+
         parsed_items.append({ "id": effect_id, "lang_id": lang_id, "params": json.dumps(lang_params), **descriptions})
     return parsed_items
 
