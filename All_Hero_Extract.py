@@ -153,20 +153,23 @@ def format_value(value):
         return f"{value:.1f}"
     return value
 
-def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int) -> (any, str):
+def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, is_modifier: bool = False) -> (any, str):
     """
     Finds and calculates a value for a placeholder using a flattened JSON structure.
+    Accepts an is_modifier flag to apply special calculation logic.
     """
+    # --- Handle fixed value placeholders first ---
+    if p_holder.upper() == 'MAXSTACK':
+        return 10, 'Fixed Value'
+
     if not isinstance(data_block, dict):
         return None, None
 
     flat_data = flatten_json(data_block)
     normalized_pholder = p_holder.lower()
     
-    # --- Context definition ---
     is_chance_related = 'chance' in normalized_pholder
     
-    # --- Indexed Placeholder Handling (e.g., POWER1) ---
     ph_base_name = normalized_pholder
     ph_index = None
     match = re.match(r'(\w+)(\d+)$', normalized_pholder)
@@ -174,28 +177,22 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int) ->
         ph_base_name, index_str = match.groups()
         ph_index = int(index_str) - 1
 
-    # --- Search in flattened data ---
     candidate_keys = []
     for key, value in flat_data.items():
-        # Context filtering
         if not is_chance_related and 'chance' in key.lower(): continue
         if is_chance_related and 'chance' not in key.lower(): continue
         
-        # Base name must be part of the key
         if ph_base_name in key.lower():
-            # If there's an index, it must also match
             if ph_index is not None:
                 if f"_{ph_index}_" in key or key.endswith(f"_{ph_index}"):
                     candidate_keys.append(key)
             else:
                 candidate_keys.append(key)
 
-    # Find the best key among candidates (prefer shorter key if multiple matches)
     if not candidate_keys:
         return None, None
     
-    # Prioritize keys containing 'power' or 'value' if placeholder suggests it
-    priority_keywords = ['power', 'value', 'modifier', 'fixed']
+    priority_keywords = ['power', 'value', 'modifier', 'fixed', 'multiplier']
     priority_keys = [k for k in candidate_keys if any(kw in k.lower() for kw in priority_keywords)]
     
     if priority_keys:
@@ -206,7 +203,6 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int) ->
     # --- Calculation ---
     base_val = flat_data.get(found_key, 0)
     
-    # Dynamically find the increment key in the flattened structure
     inc_key = ""
     if 'fixedpower' in found_key.lower():
         inc_key_pattern = found_key.lower().replace('fixedpower', 'fixedpowerincrementperlevel')
@@ -222,12 +218,16 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int) ->
 
     if not isinstance(base_val, (int, float)): return None, None
     
-    calculated_val = base_val + inc_val * (max_level - 1)
-    
-    if 'permil' in found_key.lower():
-        return calculated_val / 10, found_key
+    # --- NEW: Switch calculation based on is_modifier flag ---
+    if is_modifier:
+        calculated_val = ((base_val - 1000) + (inc_val * (max_level - 1))) / 10
+        return calculated_val, found_key
     else:
-        return int(calculated_val), found_key
+        calculated_val = base_val + inc_val * (max_level - 1)
+        if 'permil' in found_key.lower():
+            return calculated_val / 10, found_key
+        else:
+            return int(calculated_val), found_key
 
 def find_best_lang_id(data_block: dict, lang_key_subset: list) -> str:
     """
@@ -336,50 +336,52 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         lang_id = parsers['find_best_lang_id'](prop_details, prop_lang_subset)
         lang_params = {}
         
+        # --- NEW: Check for Modifier context in properties as well ---
+        is_modifier_effect = False
+        if 'propertyType' in prop_details and 'modifier' in prop_details['propertyType'].lower():
+            is_modifier_effect = True
+        elif 'effectType' in prop_details and 'modifier' in prop_details['effectType'].lower():
+             is_modifier_effect = True
+
         main_template_text = lang_db.get(lang_id, {}).get("en", "")
         extra_lang_id = '.'.join(lang_id.split('.')[:4]) + ".extra"
         extra_template_text = lang_db.get(extra_lang_id, {}).get("en", "")
         all_placeholders = set(re.findall(r'\{(\w+)\}', main_template_text + extra_template_text))
         
-        # --- NEW: Process placeholders in a specific order to handle dependencies ---
-        
-        # Define the order: base values first, then derived values
-        # Unordered placeholders will be processed last.
-        processing_order = ['FIXEDPOWER', 'DAMAGE', 'POWER', 'VALUE'] # Add other base placeholders here
-        
-        # Separate placeholders into ordered and unordered lists
+        processing_order = ['FIXEDPOWER', 'DAMAGE', 'POWER', 'VALUE', 'BASEPOWER']
         ordered_ph = [p for p in processing_order if p in all_placeholders]
-        unordered_ph = list(all_placeholders - set(ordered_ph) - {'MIN', 'MAX'}) # Exclude derived ones for now
+        unordered_ph = list(all_placeholders - set(ordered_ph) - {'MIN', 'MAX'})
         
-        # Process base values first
         for p_holder in ordered_ph + unordered_ph:
             if p_holder in lang_params: continue
-            value, _ = find_and_calculate_value(p_holder, prop_details, max_level)
+            # --- NEW: Pass the is_modifier flag ---
+            value, _ = find_and_calculate_value(p_holder, prop_details, max_level, is_modifier=is_modifier_effect)
             if value is not None:
                 lang_params[p_holder] = value
         
-        # --- NEW: Calculate derived values like MIN and MAX ---
         if 'MAX' in all_placeholders and 'FIXEDPOWER' in lang_params:
             lang_params['MAX'] = lang_params['FIXEDPOWER'] * 2
+        elif 'MAX' in all_placeholders and 'BASEPOWER' in lang_params:
+             lang_params['MAX'] = lang_params['BASEPOWER'] * 2
         
         if 'MIN' in all_placeholders and 'FIXEDPOWER' in lang_params:
             lang_params['MIN'] = math.floor(lang_params['FIXEDPOWER'] / 2)
+        elif 'MIN' in all_placeholders and 'BASEPOWER' in lang_params:
+            lang_params['MIN'] = math.floor(lang_params['BASEPOWER'] / 2)
 
-        # --- Recursion & Formatting ---
         nested_effects = []
         if 'statusEffectsPerHit' in prop_details:
             nested_effects.extend(parsers['status_effects'](prop_details['statusEffectsPerHit'], special_data, hero_stats, lang_db, game_db, parsers))
         if 'statusEffects' in prop_details:
              nested_effects.extend(parsers['status_effects'](prop_details['statusEffects'], special_data, hero_stats, lang_db, game_db, parsers))
 
-        # Final formatting
         formatted_params = {}
         template_str_for_check = main_template_text + extra_template_text
         for k, v in lang_params.items():
             formatted_val = format_value(v)
             is_percentage = f"{{{k}}}" in template_str_for_check and "%" in template_str_for_check
             
-            if isinstance(v, (int, float)) and v > 0 and k not in ["TURNS", "DAMAGE"] and is_percentage:
+            if isinstance(v, (int, float)) and v > 0 and k.upper() not in ["TURNS", "DAMAGE", "MAX", "MIN", "FIXEDPOWER", "BASEPOWER"] and is_percentage:
                  formatted_params[k] = f"+{formatted_val}"
             else:
                  formatted_params[k] = formatted_val
@@ -387,7 +389,6 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         for p in all_placeholders:
              if p not in formatted_params:
                  formatted_params[p] = f"{{{p}}}"
-
 
         main_desc = generate_description(lang_id, formatted_params, lang_db)
         tooltip_desc = generate_description(extra_lang_id, formatted_params, lang_db) if extra_lang_id in lang_db else {"en": "", "ja": ""}
@@ -419,6 +420,13 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         if (turns := effect_instance.get("turns", 0)) > 0: 
             lang_params["TURNS"] = turns
         
+        # --- NEW: Check for Modifier context ---
+        is_modifier_effect = False
+        if 'statusEffect' in effect_details and 'modifier' in effect_details['statusEffect'].lower():
+            is_modifier_effect = True
+        elif 'effectType' in effect_details and 'modifier' in effect_details['effectType'].lower():
+             is_modifier_effect = True
+
         template_text_en = lang_db.get(lang_id, {}).get("en", "")
         template_text_ja = lang_db.get(lang_id, {}).get("ja", "")
         placeholders = set(re.findall(r'\{(\w+)\}', template_text_en + template_text_ja))
@@ -428,10 +436,11 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
             if p_holder in lang_params: continue
             
             value_source = {**effect_details, **effect_instance}
-            value, found_key = find_and_calculate_value(p_holder, value_source, max_level)
+            # --- NEW: Pass the is_modifier flag to the calculation function ---
+            value, found_key = find_and_calculate_value(p_holder, value_source, max_level, is_modifier=is_modifier_effect)
 
             if value is not None:
-                if p_holder == "DAMAGE" and "permil" in (found_key or "").lower():
+                if p_holder.upper() == "DAMAGE" and "permil" in (found_key or "").lower():
                     damage_per_turn = math.floor( (value / 100) * hero_stats.get("max_attack", 0))
                     lang_params[p_holder] = damage_per_turn * turns if is_total_damage and turns > 0 else damage_per_turn
                 else:
@@ -444,7 +453,8 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
             formatted_val = format_value(v)
             is_percentage = f"{{{k}}}" in template_str_for_check and "%" in template_str_for_check
             
-            if isinstance(v, (int, float)) and v > 0 and k not in ["TURNS", "DAMAGE"] and is_percentage:
+            # Refined '+' sign logic
+            if isinstance(v, (int, float)) and v > 0 and k.upper() not in ["TURNS", "DAMAGE", "MAX", "MIN", "FIXEDPOWER"] and is_percentage:
                  formatted_params[k] = f"+{formatted_val}"
             else:
                  formatted_params[k] = formatted_val
