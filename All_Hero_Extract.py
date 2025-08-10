@@ -125,6 +125,62 @@ def get_hero_final_stats(hero_id: str, hero_stats_db: dict) -> dict:
             break
     return {"max_attack": int(hero_data.get(attack_col, 0)), "name": hero_data.get('Name', 'N/A')}
 
+def format_value(value):
+    """Formats numbers for display, removing trailing .0"""
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, float):
+        # Format with one decimal place for non-integers
+        return f"{value:.1f}"
+    return value
+
+def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int) -> (any, str):
+    """
+    Dynamically finds a key in the data_block matching the placeholder,
+    infers the value if no direct match is found, and calculates the final value.
+    Returns the calculated value and the key it was derived from.
+    """
+    normalized_pholder = p_holder.lower()
+    
+    # --- Step A: Direct prefix match ---
+    found_key = None
+    for key in data_block:
+        if key.lower().startswith(normalized_pholder):
+            found_key = key
+            break
+
+    # --- Step B: Keyword-based inference ---
+    if not found_key:
+        VALUE_KEYWORDS = ['power', 'value', 'modifier', 'amount', 'damage', 'chance', 'health']
+        candidate_keys = [k for k, v in data_block.items() if any(kw in k.lower() for kw in VALUE_KEYWORDS) and isinstance(v, (int, float))]
+        if len(candidate_keys) == 1:
+            found_key = candidate_keys[0]
+
+    # --- Step C: Type-based inference ---
+    if not found_key:
+        numeric_keys = [k for k, v in data_block.items() if isinstance(v, (int, float))]
+        # Exclude common non-value keys to improve accuracy
+        numeric_keys = [k for k in numeric_keys if k.lower() not in ['turns', 'maxstack', 'id']] 
+        if len(numeric_keys) == 1:
+            found_key = numeric_keys[0]
+    
+    if not found_key:
+        return None, None
+
+    # --- Value Calculation ---
+    base_val = data_block.get(found_key, 0)
+    inc_key_guess = found_key.replace("PerMil", "IncrementPerLevelPerMil") if "PerMil" in found_key else found_key + "IncrementPerLevel"
+    inc_val = data_block.get(inc_key_guess, 0)
+    
+    if not isinstance(base_val, (int, float)): return None, None
+
+    calculated_val = base_val + inc_val * (max_level - 1)
+    
+    if 'permil' in found_key.lower():
+        return calculated_val / 10, found_key
+    else:
+        return int(calculated_val), found_key
+
 def find_best_lang_id(data_block: dict, lang_key_subset: list) -> str:
     """
     Finds the best matching language ID from a subset based on keywords and scoring.
@@ -254,52 +310,30 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
             print(f"\n  - WARNING: Property ID '{prop_id}' not found.")
             continue
 
-        # Use the new find_best_lang_id function
         lang_id = find_best_lang_id(prop_details, prop_lang_subset)
-
         lang_params = {}
+        
         main_template_text = lang_db.get(lang_id, {}).get("en", "")
         extra_lang_id = '.'.join(lang_id.split('.')[:4]) + ".extra"
         extra_template_text = lang_db.get(extra_lang_id, {}).get("en", "")
         all_placeholders = set(re.findall(r'\{(\w+)\}', main_template_text + extra_template_text))
         
+        for p_holder in all_placeholders:
+            if p_holder in lang_params: continue
+            value, _ = find_and_calculate_value(p_holder, prop_details, max_level)
+            if value is not None:
+                lang_params[p_holder] = value
+
         nested_effects = []
-        for key, value in prop_details.items():
-            # --- RECURSION HANDLING ---
-            if isinstance(value, list) and "statuseffect" in key.lower():
-                nested_effects.extend(parsers['status_effects'](value, special_data, hero_stats, lang_db, game_db, parsers))
-                continue
-            
-            # --- DYNAMIC VALUE CALCULATION ---
-            for p_holder in all_placeholders:
-                if p_holder in lang_params: continue
-                normalized_pholder = p_holder.lower()
-                normalized_key = key.lower()
-                
-                if normalized_key.startswith(normalized_pholder):
-                    base_key = key
-                    # Simplified increment key logic, can be improved
-                    inc_key_guess = base_key.replace("PerMil", "IncrementPerLevelPerMil") if "PerMil" in base_key else base_key + "IncrementPerLevel"
-                    inc_key = inc_key_guess if inc_key_guess in prop_details else None
+        if 'statusEffectsPerHit' in prop_details:
+            nested_effects.extend(parsers['status_effects'](prop_details['statusEffectsPerHit'], special_data, hero_stats, lang_db, game_db, parsers))
+        if 'statusEffects' in prop_details:
+             nested_effects.extend(parsers['status_effects'](prop_details['statusEffects'], special_data, hero_stats, lang_db, game_db, parsers))
 
-                    base_val = prop_details.get(base_key)
-                    inc_val = prop_details.get(inc_key, 0) if inc_key else 0
-                    
-                    if isinstance(base_val, (int, float)) and isinstance(inc_val, (int, float)):
-                        calculated_val = base_val + inc_val * (max_level - 1)
-                        if 'permil' in base_key.lower():
-                             # Keep it as a float for now, formatting can be done later
-                            lang_params[p_holder] = calculated_val / 10
-                        else:
-                            lang_params[p_holder] = int(calculated_val)
-        
-        # Simplified handling for now, can be expanded
-        if "FIXEDPOWER" in lang_params:
-            if "MAX" in all_placeholders: lang_params["MAX"] = lang_params["FIXEDPOWER"] * 2
-            if "MIN" in all_placeholders: lang_params["MIN"] = math.floor(lang_params["FIXEDPOWER"] / 2)
-
-        main_desc = generate_description(lang_id, lang_params, lang_db)
-        tooltip_desc = generate_description(extra_lang_id, lang_params, lang_db) if extra_lang_id in lang_db else {"en": "", "ja": ""}
+        # Use the new format_value function
+        formatted_params = {k: format_value(v) for k, v in lang_params.items()}
+        main_desc = generate_description(lang_id, formatted_params, lang_db)
+        tooltip_desc = generate_description(extra_lang_id, formatted_params, lang_db) if extra_lang_id in lang_db else {"en": "", "ja": ""}
 
         parsed_items.append({
             "id": prop_id, "lang_id": lang_id,
@@ -308,7 +342,6 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
             "params": json.dumps(lang_params),
             "nested_effects": nested_effects
         })
-
     return parsed_items
 
 def parse_status_effects(status_effects_list: list, special_data: dict, hero_stats: dict, lang_db: dict, game_db: dict, parsers: dict) -> list:
@@ -322,61 +355,50 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         effect_details = game_db['status_effects'].get(effect_id)
         if not effect_details: continue
 
-        # Combine instance data (like 'turns') with base effect data for a richer keyword source
         combined_details = {**effect_details, **effect_instance}
         lang_id = find_best_lang_id(combined_details, se_lang_subset)
 
-        lang_params, turns = {}, effect_instance.get("turns", 0)
-        if turns > 0: lang_params["TURNS"] = turns
+        lang_params = {}
+        if (turns := effect_instance.get("turns", 0)) > 0: 
+            lang_params["TURNS"] = turns
         
         template_text_en = lang_db.get(lang_id, {}).get("en", "")
         template_text_ja = lang_db.get(lang_id, {}).get("ja", "")
-        template_text = template_text_en + template_text_ja
-        placeholders = set(re.findall(r'\{(\w+)\}', template_text))
+        placeholders = set(re.findall(r'\{(\w+)\}', template_text_en + template_text_ja))
         is_total_damage = "over {TURNS} turns" in template_text_en or "{TURNS}ターンに渡って" in template_text_ja
-
-        # Combine instance and details for value lookup
-        value_source = {**effect_details, **effect_instance}
-
+        
         for p_holder in placeholders:
             if p_holder in lang_params: continue
             
-            normalized_pholder = p_holder.lower()
-            found_key = None
-            # Search for a matching key in the value source
-            for key in value_source:
-                if key.lower().startswith(normalized_pholder):
-                    found_key = key
-                    break # Take the first match for now
+            value_source = {**effect_details, **effect_instance}
+            value, found_key = find_and_calculate_value(p_holder, value_source, max_level)
 
-            if found_key:
-                base_val = value_source.get(found_key, 0)
-                # Simplified increment key logic
-                inc_key_guess = found_key.replace("PerMil", "IncrementPerLevelPerMil") if "PerMil" in found_key else found_key + "IncrementPerLevel"
-                inc_val = value_source.get(inc_key_guess, 0)
-
-                if isinstance(base_val, (int, float)):
-                    val = base_val + inc_val * (max_level - 1)
-                    if "permil" in found_key.lower():
-                        val /= 1000
-                        if p_holder == "DAMAGE":
-                            damage = math.floor(val * hero_stats.get("max_attack", 0))
-                            lang_params[p_holder] = damage * turns if is_total_damage and turns > 0 else damage
-                        else:
-                            # Keep precision for now, format later
-                            lang_params[p_holder] = val * 100 
-                    else: # Fixed value
-                        lang_params[p_holder] = val * turns if is_total_damage and turns > 0 else int(val)
-
-        # Re-generate description with potentially rounded/formatted values
-        # This part could be enhanced with a dedicated formatting function
+            if value is not None:
+                if p_holder == "DAMAGE" and "permil" in (found_key or "").lower():
+                    damage_per_turn = math.floor( (value / 100) * hero_stats.get("max_attack", 0))
+                    lang_params[p_holder] = damage_per_turn * turns if is_total_damage and turns > 0 else damage_per_turn
+                else:
+                    lang_params[p_holder] = value
+        
+        # Use the new format_value function
         formatted_params = {}
+        # Check the template string to see if a placeholder is associated with a percentage sign
+        template_str_for_check = lang_db.get(lang_id,{}).get("en","")
+        
         for k, v in lang_params.items():
-            if isinstance(v, float):
-                # Example formatting: show one decimal place for floats
-                formatted_params[k] = f"{v:+.1f}" if v > 0 and not str(v).startswith('+') else f"{v:.1f}"
+            formatted_val = format_value(v)
+            # Add sign for positive percentage values, but not for TURNS etc.
+            is_percentage = f"{{{k}}}" in template_str_for_check and "%" in template_str_for_check
+            
+            if isinstance(v, (int, float)) and v > 0 and k not in ["TURNS", "DAMAGE"] and is_percentage:
+                 formatted_params[k] = f"+{formatted_val}"
             else:
-                formatted_params[k] = v
+                 formatted_params[k] = formatted_val
+        
+        # Ensure all params have a value for the final generate_description call
+        for p in placeholders:
+            if p not in formatted_params:
+                formatted_params[p] = f"{{{p}}}" # Keep it as a placeholder if not found
 
         descriptions = generate_description(lang_id, formatted_params, lang_db)
         parsed_items.append({ "id": effect_id, "lang_id": lang_id, "params": json.dumps(lang_params), **descriptions})
