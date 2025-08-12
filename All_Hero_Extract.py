@@ -330,60 +330,53 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
             print(f"\n  - WARNING: Property ID '{prop_id}' not found.")
             continue
 
-        lang_id = parsers['find_best_lang_id'](prop_details, prop_lang_subset)
+        lang_id = find_best_lang_id(prop_details, prop_lang_subset)
         lang_params = {}
         
-        # --- NEW: Check for Modifier context in properties as well ---
-        is_modifier_effect = False
-        if 'propertyType' in prop_details and 'modifier' in prop_details['propertyType'].lower():
-            is_modifier_effect = True
-        elif 'effectType' in prop_details and 'modifier' in prop_details['effectType'].lower():
-             is_modifier_effect = True
+        # --- MODIFIED: Pass both local and parent scope for value searching ---
+        # The property's own data takes precedence
+        search_context = {**special_data, **prop_details}
+        
+        is_modifier_effect = 'modifier' in prop_details.get('propertyType', '').lower()
 
         main_template_text = lang_db.get(lang_id, {}).get("en", "")
         extra_lang_id = '.'.join(lang_id.split('.')[:4]) + ".extra"
         extra_template_text = lang_db.get(extra_lang_id, {}).get("en", "")
         all_placeholders = set(re.findall(r'\{(\w+)\}', main_template_text + extra_template_text))
         
-        processing_order = ['FIXEDPOWER', 'DAMAGE', 'POWER', 'VALUE', 'BASEPOWER']
-        ordered_ph = [p for p in processing_order if p in all_placeholders]
-        unordered_ph = list(all_placeholders - set(ordered_ph) - {'MIN', 'MAX'})
-        
-        for p_holder in ordered_ph + unordered_ph:
+        for p_holder in all_placeholders:
             if p_holder in lang_params: continue
-            # --- NEW: Pass the is_modifier flag  ---
-            value, _ = find_and_calculate_value(p_holder, prop_details, max_level, is_modifier=is_modifier_effect)
+            # Pass the combined context to the value finder
+            value, _ = find_and_calculate_value(p_holder, search_context, max_level, is_modifier_effect)
             if value is not None:
                 lang_params[p_holder] = value
         
+        # MIN/MAX calculation logic
         if 'MAX' in all_placeholders and 'FIXEDPOWER' in lang_params:
             lang_params['MAX'] = lang_params['FIXEDPOWER'] * 2
-        elif 'MAX' in all_placeholders and 'BASEPOWER' in lang_params:
-             lang_params['MAX'] = lang_params['BASEPOWER'] * 2
-        
         if 'MIN' in all_placeholders and 'FIXEDPOWER' in lang_params:
             lang_params['MIN'] = math.floor(lang_params['FIXEDPOWER'] / 2)
-        elif 'MIN' in all_placeholders and 'BASEPOWER' in lang_params:
-            lang_params['MIN'] = math.floor(lang_params['BASEPOWER'] / 2)
 
+        # --- NEW: Recursive call for nested status effects ---
         nested_effects = []
-        if 'statusEffectsPerHit' in prop_details:
-            nested_effects.extend(parsers['status_effects'](prop_details['statusEffectsPerHit'], special_data, hero_stats, lang_db, game_db, parsers))
-        if 'statusEffects' in prop_details:
-             nested_effects.extend(parsers['status_effects'](prop_details['statusEffects'], special_data, hero_stats, lang_db, game_db, parsers))
+        # Check for nested status effects and call the status effect parser
+        for key in ['statusEffects', 'statusEffectsPerHit']:
+            if key in prop_details and isinstance(prop_details[key], list):
+                # Pass 'special_data' as the parent context for the nested call
+                nested_effects.extend(parsers['status_effects'](prop_details[key], special_data, hero_stats, lang_db, game_db, parsers))
 
-        formatted_params = {}
+        # Formatting logic (from the last working version)
+        formatted_params = {k: format_value(v) for k, v in lang_params.items()}
+        # Apply '+' sign formatting if needed
+        # (This logic can be refined later as discussed)
         template_str_for_check = main_template_text + extra_template_text
         for k, v in lang_params.items():
             formatted_val = format_value(v)
             is_percentage = f"{{{k}}}" in template_str_for_check and "%" in template_str_for_check
-            
-            # UPDATED: Added MAXSTACK to the exclusion list for the '+' sign
             if isinstance(v, (int, float)) and v > 0 and k.upper() not in ["TURNS", "DAMAGE", "MAX", "MIN", "FIXEDPOWER", "BASEPOWER", "MAXSTACK"] and is_percentage:
                  formatted_params[k] = f"+{formatted_val}"
             else:
                  formatted_params[k] = formatted_val
-        
         for p in all_placeholders:
              if p not in formatted_params:
                  formatted_params[p] = f"{{{p}}}"
@@ -391,7 +384,6 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         main_desc = generate_description(lang_id, formatted_params, lang_db)
         tooltip_desc = generate_description(extra_lang_id, formatted_params, lang_db) if extra_lang_id in lang_db else {"en": "", "ja": ""}
 
-        # --- NEW: Clean up excessive newlines ---
         main_desc['en'] = re.sub(r'\n\s*\n', '\n', main_desc['en']).strip()
         main_desc['ja'] = re.sub(r'\n\s*\n', '\n', main_desc['ja']).strip()
         tooltip_desc['en'] = re.sub(r'\n\s*\n', '\n', tooltip_desc['en']).strip()
