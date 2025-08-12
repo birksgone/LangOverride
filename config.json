@@ -1,0 +1,13 @@
+{
+  "EXCEPTION_RULES": {
+    "REALLOCATIONCOUNT": {
+      "key": "reallocationCount",
+      "calc": "direct"
+    },
+    "MAXSTACK": {
+      "key": "fixed_value",
+      "value": 10,
+      "calc": "fixed"
+    }
+  }
+}
