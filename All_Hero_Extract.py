@@ -351,7 +351,7 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         
         for p_holder in ordered_ph + unordered_ph:
             if p_holder in lang_params: continue
-            # --- NEW: Pass the is_modifier flag ---
+            # --- NEW: Pass the is_modifier flag  ---
             value, _ = find_and_calculate_value(p_holder, prop_details, max_level, is_modifier=is_modifier_effect)
             if value is not None:
                 lang_params[p_holder] = value
