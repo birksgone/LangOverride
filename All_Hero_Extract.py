@@ -147,6 +147,61 @@ def load_hero_stats_from_csv(base_dir: Path, pattern: str) -> dict:
         print(f"FATAL: Could not load hero stats CSV. Error: {e}")
         raise
 
+def get_full_hero_data(base_data: dict, game_db: dict) -> dict:
+    """
+    Top-level function to start the recursive resolution process for a hero's data.
+    """
+    resolved_data = json.loads(json.dumps(base_data))
+    processed_ids = set()
+    _resolve_recursive(resolved_data, game_db, processed_ids)
+    return resolved_data
+
+def _resolve_recursive(current_data, game_db, processed_ids):
+    """
+    Inner recursive function to traverse and resolve IDs.
+    It modifies the 'current_data' object in place.
+    """
+    ID_CONTEXT_MAP = {
+        'specialId': 'character_specials',
+        'properties': 'special_properties',
+        'statusEffects': 'status_effects',
+        'statusEffectsPerHit': 'status_effects',
+        'summonedFamiliars': 'familiars',
+        'effects': 'familiar_effects',
+        'passiveSkills': 'status_effects'
+    }
+
+    if isinstance(current_data, dict):
+        for key, value in list(current_data.items()):
+            if key in ID_CONTEXT_MAP and isinstance(value, str) and value not in processed_ids:
+                db_key = ID_CONTEXT_MAP[key]
+                if value in game_db.get(db_key, {}):
+                    processed_ids.add(value)
+                    new_data = json.loads(json.dumps(game_db[db_key][value]))
+                    _resolve_recursive(new_data, game_db, processed_ids)
+                    current_data[f"{key}_details"] = new_data
+            
+            elif key in ID_CONTEXT_MAP and isinstance(value, list):
+                db_key = ID_CONTEXT_MAP[key]
+                for i, list_item in enumerate(value):
+                    item_id = list_item if isinstance(list_item, str) else (list_item.get('id') if isinstance(list_item, dict) else None)
+                    if item_id and item_id not in processed_ids and item_id in game_db.get(db_key, {}):
+                        processed_ids.add(item_id)
+                        new_data = json.loads(json.dumps(game_db[db_key][item_id]))
+                        _resolve_recursive(new_data, game_db, processed_ids)
+                        if isinstance(value[i], str):
+                            value[i] = new_data
+                        else:
+                            value[i].update(new_data)
+            
+            elif isinstance(value, (dict, list)):
+                _resolve_recursive(value, game_db, processed_ids)
+
+    elif isinstance(current_data, list):
+        for item in current_data:
+            _resolve_recursive(item, game_db, processed_ids)
+
+
 # --- Text Generation Helper ---
 def generate_description(lang_id: str, lang_params: dict, lang_db: dict) -> dict:
     template = lang_db.get(lang_id, {"en": f"NO_TEMPLATE_FOR_{lang_id}", "ja": f"NO_TEMPLATE_FOR_{lang_id}"})
@@ -468,25 +523,32 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
 def write_results_to_csv(processed_data: list, output_path: Path):
     print(f"\n--- Writing results to {output_path} ---")
     if not processed_data: return
+    
+    # Create the initial flat data without debug columns
     flat_data = []
     for hero in processed_data:
         row = {'hero_id': hero.get('id'), 'hero_name': hero.get('name', 'N/A')}
         skills = hero.get('skillDescriptions', {})
         if de := skills.get('directEffect'): row.update({f'de_{k}': v for k, v in de.items()})
-        
         props = skills.get('properties', [])
         for i, p in enumerate(props[:3]):
             row.update({f'prop_{i+1}_{k}': v for k, v in p.items() if k != 'nested_effects'})
             if nested := p.get('nested_effects'):
                 for j, ne in enumerate(nested[:2]):
                      row.update({f'prop_{i+1}_nested_{j+1}_{k}': v for k, v in ne.items()})
-
         effects = skills.get('statusEffects', [])
         for i, e in enumerate(effects[:5]): row.update({f'se_{i+1}_{k}': v for k, v in e.items()})
         flat_data.append(row)
+    
+    df = pd.DataFrame(flat_data)
+
+    # --- NEW: Add debug columns at the end to avoid shifting ---
+    df['debug_full_hero_data_json'] = [h.get('debug_full_hero_data_json', '') for h in processed_data]
+    df['debug_parsed_sources_json'] = [h.get('debug_parsed_sources_json', '') for h in processed_data]
+    df['debug_lang_ids_json'] = [h.get('debug_lang_ids_json', '') for h in processed_data]
+
     try:
-        df = pd.DataFrame(flat_data)
-        df.to_csv(output_path, index=False, encoding='utf-8-sig')
+        df.to_csv(output_path, index=False, encoding='utf-8-sig', quoting=csv.QUOTE_ALL, lineterminator='\n')
         print(f"Successfully saved {len(df)} rows to CSV.")
     except Exception as e: print(f"FATAL: Failed to write CSV: {e}")
 
@@ -502,17 +564,58 @@ def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, parser
         print(f"\r[{i+1}/{len(all_heroes)}] Processing: {hero_id.ljust(40)}", end="")
         
         hero_final_stats = get_hero_final_stats(hero_id, hero_stats_db)
-        hero['name'] = hero_final_stats.get('name')
-        hero['skillDescriptions'] = {}
         
-        if not (special_id := hero.get("specialId")) or not (special_data := game_db['character_specials'].get(special_id)):
-            processed_heroes_data.append(hero)
+        processed_hero = hero.copy()
+        processed_hero['name'] = hero_final_stats.get('name')
+        
+        special_id = hero.get("specialId")
+        if not special_id or not (special_data := game_db['character_specials'].get(special_id)):
+            processed_heroes_data.append(processed_hero)
             continue
-            
-        hero['skillDescriptions']['directEffect'] = parsers['direct_effect'](special_data, hero_final_stats, lang_db, game_db, parsers)
-        hero['skillDescriptions']['properties'] = parsers['properties'](special_data.get("properties", []), special_data, hero_final_stats, lang_db, game_db, parsers)
-        hero['skillDescriptions']['statusEffects'] = parsers['status_effects'](special_data.get("statusEffects", []), special_data, hero_final_stats, lang_db, game_db, parsers)
-        processed_heroes_data.append(hero)
+
+        # --- DEBUG DATA COLLECTION ---
+        # 1. Get the fully resolved data
+        full_hero_data = get_full_hero_data(hero, game_db)
+        processed_hero['debug_full_hero_data_json'] = json.dumps(full_hero_data, indent=2)
+
+        # 2. Find all skill blocks the parsers *should* be finding
+        all_skill_blocks = []
+        queue = [full_hero_data]
+        processed_ids = set()
+        while queue:
+            item = queue.pop(0)
+            if isinstance(item, dict):
+                # Check for property or status effect keys
+                if (item.get('propertyType') or item.get('statusEffect')) and item.get('id') not in processed_ids:
+                    all_skill_blocks.append(item)
+                    processed_ids.add(item.get('id'))
+                for value in item.values():
+                    if isinstance(value, (dict, list)): queue.append(value)
+            elif isinstance(item, list):
+                for sub_item in item: queue.append(sub_item)
+        processed_hero['debug_parsed_sources_json'] = json.dumps(all_skill_blocks, indent=2)
+
+        # 3. Find the lang_id for each found block
+        chosen_lang_ids = []
+        for block in all_skill_blocks:
+            subset = parsers['prop_lang_subset'] if 'propertyType' in block else parsers['se_lang_subset']
+            # Simplified parent context for this debug log
+            parent_context = full_hero_data.get('specialId_details', {})
+            lang_id = find_best_lang_id(block, subset, parent_block=parent_context)
+            chosen_lang_ids.append({'skill_id': block.get('id'), 'chosen_lang_id': lang_id})
+        processed_hero['debug_lang_ids_json'] = json.dumps(chosen_lang_ids, indent=2)
+        # --- END DEBUG DATA COLLECTION ---
+
+        # Regular parsing (remains the same as the working version)
+        prop_list = special_data.get("properties", [])
+        se_list = special_data.get("statusEffects", [])
+        processed_hero['skillDescriptions'] = {
+            'directEffect': parsers['direct_effect'](special_data, hero_final_stats, lang_db, game_db, parsers),
+            'properties': parsers['properties'](prop_list, special_data, hero_final_stats, lang_db, game_db, parsers),
+            'statusEffects': parsers['status_effects'](se_list, special_data, hero_final_stats, lang_db, game_db, parsers)
+        }
+        
+        processed_heroes_data.append(processed_hero)
     
     print("\n" + "--- Finished processing all heroes. ---")
     return processed_heroes_data
