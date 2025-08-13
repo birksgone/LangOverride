@@ -532,6 +532,47 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         
     return parsed_items
 
+
+def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, lang_db: dict, game_db: dict, parsers: dict) -> list:
+    if not familiars_list: return []
+    parsed_items = []
+    fam_lang_subset = parsers['fam_lang_subset']
+    
+    for familiar_instance in familiars_list:
+        familiar_id = familiar_instance.get("id")
+        familiar_details = game_db['familiars'].get(familiar_id)
+        if not familiar_details: continue
+
+        combined_details = {**familiar_details, **familiar_instance}
+        lang_id = find_best_lang_id(combined_details, fam_lang_subset, parent_block=special_data)
+        
+        lang_params = {}
+        # ... (Parameter calculation for FAMILIARATTACK, FAMILIARHEALTHPERCENT, etc.)
+        
+        # Recursive call to parse the effects *of* this familiar
+        nested_effects = parsers['familiar_effects'](familiar_details.get('effects', []), special_data, hero_stats, lang_db, game_db, parsers)
+
+        main_desc = generate_description(lang_id, lang_params, lang_db)
+        
+        parsed_items.append({
+            "id": familiar_id, "lang_id": lang_id,
+            **main_desc,
+            "params": json.dumps(lang_params),
+            "nested_effects": nested_effects
+        })
+    return parsed_items
+
+def parse_familiar_effects(effects_list: list, special_data: dict, hero_stats: dict, lang_db: dict, game_db: dict, parsers: dict) -> list:
+    if not effects_list: return []
+    # This function will be very similar to parse_status_effects
+    # For now, it's a placeholder to show the structure
+    parsed_effects = []
+    for effect in effects_list:
+        effect_id = effect.get("id")
+        effect_details = game_db['familiar_effects'].get(effect_id, {})
+        # ... find lang_id, calculate params, etc. ...
+    return parsed_effects
+
 # --- CSV Output Function ---
 def write_results_to_csv(processed_data: list, output_path: Path):
     print(f"\n--- Writing results to {output_path} ---")
@@ -568,21 +609,15 @@ def write_debug_json(debug_data: dict, output_path: Path):
 
 
 # --- Main Processing Function ---
-def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, parsers: dict) -> (list, dict):
+def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, parsers: dict) -> list:
     print("\n--- Starting Hero Processing ---")
     all_heroes = game_db.get('heroes', [])
     processed_heroes_data = []
-    all_heroes_debug_data = {} # For the new debug JSON
     
     for i, hero in enumerate(all_heroes):
         hero_id = hero.get("id", "UNKNOWN")
         print(f"\r[{i+1}/{len(all_heroes)}] Processing: {hero_id.ljust(40)}", end="")
         
-        # --- ADDED FOR DEBUGGING: Collect fully resolved data ---
-        full_hero_data = get_full_hero_data(hero, game_db)
-        all_heroes_debug_data[hero_id] = full_hero_data
-
-        # --- UNCHANGED: The original, stable parsing logic ---
         hero_final_stats = get_hero_final_stats(hero_id, hero_stats_db)
         processed_hero = hero.copy()
         processed_hero['name'] = hero_final_stats.get('name')
@@ -595,16 +630,19 @@ def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, parser
             
         prop_list = special_data.get("properties", [])
         se_list = special_data.get("statusEffects", [])
+        familiar_list = special_data.get("summonedFamiliars", [])
+
         processed_hero['skillDescriptions'] = {
             'directEffect': parsers['direct_effect'](special_data, hero_final_stats, lang_db, game_db, parsers),
             'properties': parsers['properties'](prop_list, special_data, hero_final_stats, lang_db, game_db, parsers),
-            'statusEffects': parsers['status_effects'](se_list, special_data, hero_final_stats, lang_db, game_db, parsers)
+            'statusEffects': parsers['status_effects'](se_list, special_data, hero_final_stats, lang_db, game_db, parsers),
+            # --- NEW: Call the familiar parser ---
+            'familiars': parsers['familiars'](familiar_list, special_data, hero_final_stats, lang_db, game_db, parsers)
         }
         processed_heroes_data.append(processed_hero)
     
     print("\n" + "--- Finished processing all heroes. ---")
-    # Return both the main data and the debug data
-    return processed_heroes_data, all_heroes_debug_data
+    return processed_heroes_data
 
 def main():
     """Main function to run the entire process."""
@@ -616,15 +654,18 @@ def main():
         print("\nOptimizing language data for search...")
         parsers = {
             'se_lang_subset': [key for key in language_db if key.startswith("specials.v2.statuseffect.")],
-            'prop_lang_subset': [key for key in language_db if key.startswith("specials.v2.property.")]
+            'prop_lang_subset': [key for key in language_db if key.startswith("specials.v2.property.")],
+            'fam_lang_subset': [key for key in language_db if key.startswith("specials.v2.parasite.") or key.startswith("specials.v2.minion.")], # NEW
+            'find_best_lang_id': find_best_lang_id,
+            'direct_effect': parse_direct_effect,
+            'properties': parse_properties,
+            'status_effects': parse_status_effects,
+            'familiars': parse_familiars, # NEW
+            'familiar_effects': parse_familiar_effects # NEW
         }
-        parsers['find_best_lang_id'] = find_best_lang_id
-        parsers['direct_effect'] = parse_direct_effect
-        parsers['properties'] = parse_properties
-        parsers['status_effects'] = parse_status_effects
-        print(f" -> Found {len(parsers['se_lang_subset'])} status effect and {len(parsers['prop_lang_subset'])} property language keys.")
+        print(f" -> Found {len(parsers['se_lang_subset'])} status effect, {len(parsers['prop_lang_subset'])} property, and {len(parsers['fam_lang_subset'])} familiar language keys.")
 
-        final_hero_data, debug_data = process_all_heroes(language_db, game_db, hero_stats_db, parsers)
+        final_hero_data = process_all_heroes(language_db, game_db, hero_stats_db, parsers)
         
         write_results_to_csv(final_hero_data, OUTPUT_CSV_PATH)
         
