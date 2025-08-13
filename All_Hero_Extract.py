@@ -523,8 +523,6 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
 def write_results_to_csv(processed_data: list, output_path: Path):
     print(f"\n--- Writing results to {output_path} ---")
     if not processed_data: return
-    
-    # Create the initial flat data without debug columns
     flat_data = []
     for hero in processed_data:
         row = {'hero_id': hero.get('id'), 'hero_name': hero.get('name', 'N/A')}
@@ -539,74 +537,49 @@ def write_results_to_csv(processed_data: list, output_path: Path):
         effects = skills.get('statusEffects', [])
         for i, e in enumerate(effects[:5]): row.update({f'se_{i+1}_{k}': v for k, v in e.items()})
         flat_data.append(row)
-    
-    df = pd.DataFrame(flat_data)
-
-    # --- NEW: Add debug columns at the end to avoid shifting ---
-    df['debug_full_hero_data_json'] = [h.get('debug_full_hero_data_json', '') for h in processed_data]
-    df['debug_parsed_sources_json'] = [h.get('debug_parsed_sources_json', '') for h in processed_data]
-    df['debug_lang_ids_json'] = [h.get('debug_lang_ids_json', '') for h in processed_data]
-
     try:
+        df = pd.DataFrame(flat_data)
         df.to_csv(output_path, index=False, encoding='utf-8-sig', quoting=csv.QUOTE_ALL, lineterminator='\n')
         print(f"Successfully saved {len(df)} rows to CSV.")
     except Exception as e: print(f"FATAL: Failed to write CSV: {e}")
 
 
+def write_debug_json(debug_data: dict, output_path: Path):
+    print(f"\n--- Writing debug data to {output_path} ---")
+    try:
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(debug_data, f, indent=2, ensure_ascii=False)
+        print(f"Successfully saved debug data for {len(debug_data)} heroes.")
+    except Exception as e:
+        print(f"FATAL: Failed to write debug JSON: {e}")
+
+
 # --- Main Processing Function ---
-def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, parsers: dict) -> list:
+def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, parsers: dict) -> (list, dict):
     print("\n--- Starting Hero Processing ---")
     all_heroes = game_db.get('heroes', [])
     processed_heroes_data = []
+    all_heroes_debug_data = {} # For the new debug JSON
     
     for i, hero in enumerate(all_heroes):
         hero_id = hero.get("id", "UNKNOWN")
         print(f"\r[{i+1}/{len(all_heroes)}] Processing: {hero_id.ljust(40)}", end="")
         
+        # --- ADDED FOR DEBUGGING: Collect fully resolved data ---
+        full_hero_data = get_full_hero_data(hero, game_db)
+        all_heroes_debug_data[hero_id] = full_hero_data
+
+        # --- UNCHANGED: The original, stable parsing logic ---
         hero_final_stats = get_hero_final_stats(hero_id, hero_stats_db)
-        
         processed_hero = hero.copy()
         processed_hero['name'] = hero_final_stats.get('name')
         
         special_id = hero.get("specialId")
         if not special_id or not (special_data := game_db['character_specials'].get(special_id)):
+            processed_hero['skillDescriptions'] = {}
             processed_heroes_data.append(processed_hero)
             continue
-
-        # --- DEBUG DATA COLLECTION ---
-        # 1. Get the fully resolved data
-        full_hero_data = get_full_hero_data(hero, game_db)
-        processed_hero['debug_full_hero_data_json'] = json.dumps(full_hero_data, indent=2)
-
-        # 2. Find all skill blocks the parsers *should* be finding
-        all_skill_blocks = []
-        queue = [full_hero_data]
-        processed_ids = set()
-        while queue:
-            item = queue.pop(0)
-            if isinstance(item, dict):
-                # Check for property or status effect keys
-                if (item.get('propertyType') or item.get('statusEffect')) and item.get('id') not in processed_ids:
-                    all_skill_blocks.append(item)
-                    processed_ids.add(item.get('id'))
-                for value in item.values():
-                    if isinstance(value, (dict, list)): queue.append(value)
-            elif isinstance(item, list):
-                for sub_item in item: queue.append(sub_item)
-        processed_hero['debug_parsed_sources_json'] = json.dumps(all_skill_blocks, indent=2)
-
-        # 3. Find the lang_id for each found block
-        chosen_lang_ids = []
-        for block in all_skill_blocks:
-            subset = parsers['prop_lang_subset'] if 'propertyType' in block else parsers['se_lang_subset']
-            # Simplified parent context for this debug log
-            parent_context = full_hero_data.get('specialId_details', {})
-            lang_id = find_best_lang_id(block, subset, parent_block=parent_context)
-            chosen_lang_ids.append({'skill_id': block.get('id'), 'chosen_lang_id': lang_id})
-        processed_hero['debug_lang_ids_json'] = json.dumps(chosen_lang_ids, indent=2)
-        # --- END DEBUG DATA COLLECTION ---
-
-        # Regular parsing (remains the same as the working version)
+            
         prop_list = special_data.get("properties", [])
         se_list = special_data.get("statusEffects", [])
         processed_hero['skillDescriptions'] = {
@@ -614,11 +587,11 @@ def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, parser
             'properties': parsers['properties'](prop_list, special_data, hero_final_stats, lang_db, game_db, parsers),
             'statusEffects': parsers['status_effects'](se_list, special_data, hero_final_stats, lang_db, game_db, parsers)
         }
-        
         processed_heroes_data.append(processed_hero)
     
     print("\n" + "--- Finished processing all heroes. ---")
-    return processed_heroes_data
+    # Return both the main data and the debug data
+    return processed_heroes_data, all_heroes_debug_data
 
 def main():
     """Main function to run the entire process."""
@@ -638,9 +611,15 @@ def main():
         parsers['status_effects'] = parse_status_effects
         print(f" -> Found {len(parsers['se_lang_subset'])} status effect and {len(parsers['prop_lang_subset'])} property language keys.")
 
-        final_hero_data = process_all_heroes(language_db, game_db, hero_stats_db, parsers)
+        final_hero_data, debug_data = process_all_heroes(language_db, game_db, hero_stats_db, parsers)
+        
         write_results_to_csv(final_hero_data, OUTPUT_CSV_PATH)
+        
+        debug_output_path = SCRIPT_DIR / "debug_hero_data.json"
+        write_debug_json(debug_data, debug_output_path)
+        
         print(f"\nProcess complete. Output saved to {OUTPUT_CSV_PATH}")
+        print(f"Debug data saved to {debug_output_path}")
 
         # --- Unresolved Placeholder Summary ---
         print("\n--- Analyzing unresolved placeholders in final output ---")
