@@ -120,13 +120,28 @@ def load_game_data() -> dict:
     def load_json(p):
         if not p.exists(): raise FileNotFoundError(f"Game data not found: {p}")
         with open(p, 'r', encoding='utf-8') as f: return json.load(f)
+    
     game_data['heroes'] = load_json(CHARACTERS_PATH).get('charactersConfig', {}).get('heroes', [])
+    
     specials_config = load_json(SPECIALS_PATH).get('specialsConfig', {})
     game_data['character_specials'] = {cs['id']: cs for cs in specials_config.get('characterSpecials', [])}
     game_data['special_properties'] = {p['id']: p for p in specials_config.get('specialProperties', [])}
+    
     battle_config = load_json(BATTLE_PATH).get('battleConfig', {})
     game_data['status_effects'] = {se['id']: se for se in battle_config.get('statusEffects', [])}
-    print(f" -> Loaded {len(game_data['heroes'])} heroes, {len(game_data['character_specials'])} specials, {len(game_data['status_effects'])} status effects.")
+    game_data['familiars'] = {f['id']: f for f in battle_config.get('familiars', [])}
+    game_data['familiar_effects'] = {fe['id']: fe for fe in battle_config.get('familiarEffects', [])}
+
+    # --- NEW: Create a master database for easy ID lookup ---
+    game_data['master_db'] = {
+        **game_data['character_specials'],
+        **game_data['special_properties'],
+        **game_data['status_effects'],
+        **game_data['familiars'],
+        **game_data['familiar_effects']
+    }
+
+    print(f" -> Loaded {len(game_data['heroes'])} heroes and created a master_db with {len(game_data['master_db'])} items.")
     return game_data
 
 def load_hero_stats_from_csv(base_dir: Path, pattern: str) -> dict:
@@ -148,58 +163,56 @@ def load_hero_stats_from_csv(base_dir: Path, pattern: str) -> dict:
         raise
 
 def get_full_hero_data(base_data: dict, game_db: dict) -> dict:
-    """
-    Top-level function to start the recursive resolution process for a hero's data.
-    """
     resolved_data = json.loads(json.dumps(base_data))
     processed_ids = set()
-    _resolve_recursive(resolved_data, game_db, processed_ids)
+    # Pass the master_db to the recursive function
+    _resolve_recursive(resolved_data, game_db['master_db'], processed_ids)
     return resolved_data
 
-def _resolve_recursive(current_data, game_db, processed_ids):
-    """
-    Inner recursive function to traverse and resolve IDs.
-    It modifies the 'current_data' object in place.
-    """
-    ID_CONTEXT_MAP = {
-        'specialId': 'character_specials',
-        'properties': 'special_properties',
-        'statusEffects': 'status_effects',
-        'statusEffectsPerHit': 'status_effects',
-        'summonedFamiliars': 'familiars',
-        'effects': 'familiar_effects',
-        'passiveSkills': 'status_effects'
-    }
-
+def _resolve_recursive(current_data, master_db, processed_ids):
+    # This function is now much simpler as it only needs to check for 'id' keys
+    
     if isinstance(current_data, dict):
+        # Use list(current_data.items()) to allow modification during iteration
         for key, value in list(current_data.items()):
-            if key in ID_CONTEXT_MAP and isinstance(value, str) and value not in processed_ids:
-                db_key = ID_CONTEXT_MAP[key]
-                if value in game_db.get(db_key, {}):
-                    processed_ids.add(value)
-                    new_data = json.loads(json.dumps(game_db[db_key][value]))
-                    _resolve_recursive(new_data, game_db, processed_ids)
+            item_id = None
+            if key.lower().endswith('id') and isinstance(value, str):
+                item_id = value
+            
+            if item_id and item_id not in processed_ids:
+                if item_id in master_db:
+                    processed_ids.add(item_id)
+                    new_data = json.loads(json.dumps(master_db[item_id]))
+                    # Recursively resolve the new data block *before* merging
+                    _resolve_recursive(new_data, master_db, processed_ids)
                     current_data[f"{key}_details"] = new_data
             
-            elif key in ID_CONTEXT_MAP and isinstance(value, list):
-                db_key = ID_CONTEXT_MAP[key]
-                for i, list_item in enumerate(value):
-                    item_id = list_item if isinstance(list_item, str) else (list_item.get('id') if isinstance(list_item, dict) else None)
-                    if item_id and item_id not in processed_ids and item_id in game_db.get(db_key, {}):
-                        processed_ids.add(item_id)
-                        new_data = json.loads(json.dumps(game_db[db_key][item_id]))
-                        _resolve_recursive(new_data, game_db, processed_ids)
-                        if isinstance(value[i], str):
-                            value[i] = new_data
-                        else:
-                            value[i].update(new_data)
-            
-            elif isinstance(value, (dict, list)):
-                _resolve_recursive(value, game_db, processed_ids)
+            # Continue traversal into nested structures
+            if isinstance(value, (dict, list)):
+                _resolve_recursive(value, master_db, processed_ids)
 
     elif isinstance(current_data, list):
-        for item in current_data:
-            _resolve_recursive(item, game_db, processed_ids)
+        for i, item in enumerate(current_data):
+            item_id = None
+            if isinstance(item, str):
+                item_id = item
+            elif isinstance(item, dict) and 'id' in item:
+                item_id = item['id']
+
+            if item_id and item_id not in processed_ids:
+                if item_id in master_db:
+                    processed_ids.add(item_id)
+                    new_data = json.loads(json.dumps(master_db[item_id]))
+                    _resolve_recursive(new_data, master_db, processed_ids)
+                    
+                    if isinstance(current_data[i], str):
+                        current_data[i] = new_data # Replace string with resolved dict
+                    else:
+                        current_data[i].update(new_data) # Merge into existing dict
+            
+            # Continue traversal even if the item itself was resolved
+            if isinstance(item, (dict, list)):
+                 _resolve_recursive(item, master_db, processed_ids)
 
 
 # --- Text Generation Helper ---
