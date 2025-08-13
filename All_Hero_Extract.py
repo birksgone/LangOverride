@@ -414,8 +414,18 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
     max_level = special_data.get("maxLevel", 1)
     prop_lang_subset = parsers['prop_lang_subset']
     
-    for prop_id in properties_list:
-        prop_details = game_db['special_properties'].get(prop_id)
+    for prop_id_or_dict in properties_list:
+        prop_details = {}
+        prop_id = None
+        
+        # Handle both string IDs and pre-resolved dictionaries
+        if isinstance(prop_id_or_dict, dict):
+            prop_details = prop_id_or_dict
+            prop_id = prop_details.get('id')
+        else:
+            prop_id = prop_id_or_dict
+            prop_details = game_db['special_properties'].get(prop_id)
+
         if not prop_details:
             print(f"\n  - WARNING: Property ID '{prop_id}' not found.")
             continue
@@ -443,15 +453,14 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         if 'MIN' in all_placeholders and 'FIXEDPOWER' in lang_params:
             lang_params['MIN'] = math.floor(lang_params['FIXEDPOWER'] / 2)
 
-        # --- RECURSIVE CALL LOGIC ---
         nested_effects = []
         for key in ['statusEffects', 'statusEffectsPerHit']:
             if key in prop_details and isinstance(prop_details[key], list):
-                # Pass the main special_data as context for the nested call
+                # IMPORTANT: Pass special_data for context, NOT prop_details
                 nested_effects.extend(parsers['status_effects'](prop_details[key], special_data, hero_stats, lang_db, game_db, parsers))
 
-        formatted_params = {k: format_value(v) for k, v in lang_params.items()}
         template_str_for_check = main_template_text + extra_template_text
+        formatted_params = {}
         for k, v in lang_params.items():
             formatted_val = format_value(v)
             is_percentage = f"{{{k}}}" in template_str_for_check and "%" in template_str_for_check
@@ -532,33 +541,44 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         
     return parsed_items
 
-
 def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, lang_db: dict, game_db: dict, parsers: dict) -> list:
     if not familiars_list: return []
     parsed_items = []
-    fam_lang_subset = parsers['fam_lang_subset']
-    
+    max_level = special_data.get("maxLevel", 1)
+
     for familiar_instance in familiars_list:
         familiar_id = familiar_instance.get("id")
-        familiar_details = game_db['familiars'].get(familiar_id)
-        if not familiar_details: continue
-
-        combined_details = {**familiar_details, **familiar_instance}
-        lang_id = find_best_lang_id(combined_details, fam_lang_subset, parent_block=special_data)
+        if not familiar_id: continue
         
+        # This familiar_instance should already be resolved by get_full_hero_data
+        # It contains details from 'familiars' and its 'effects' are also resolved
+        
+        fam_type = familiar_instance.get("familiarType")
+        fam_target = familiar_instance.get("familiarTargetType")
+        if not (fam_type and fam_target): continue
+
+        lang_id = f"specials.v2.{fam_type.lower()}.{familiar_id}.{fam_target.lower()}"
         lang_params = {}
-        # ... (Parameter calculation for FAMILIARATTACK, FAMILIARHEALTHPERCENT, etc.)
-        
-        # Recursive call to parse the effects *of* this familiar
-        nested_effects = parsers['familiar_effects'](familiar_details.get('effects', []), special_data, hero_stats, lang_db, game_db, parsers)
+        template_text = lang_db.get(lang_id, {}).get("en", "")
+        placeholders = set(re.findall(r'\{(\w+)\}', template_text))
 
-        main_desc = generate_description(lang_id, lang_params, lang_db)
+        # The search context is the rich familiar_instance object itself
+        for p_holder in placeholders:
+            value, _ = find_and_calculate_value(p_holder, familiar_instance, max_level)
+            if value is not None:
+                lang_params[p_holder] = value
+        
+        formatted_params = {k: format_value(v) for k, v in lang_params.items()}
+        main_desc = generate_description(lang_id, formatted_params, lang_db)
+
+        # Handle bullet points
+        main_desc['en'] = main_desc['en'].replace('[*]', '\n・').strip()
+        main_desc['ja'] = main_desc['ja'].replace('[*]', '\n・').strip()
         
         parsed_items.append({
             "id": familiar_id, "lang_id": lang_id,
-            **main_desc,
-            "params": json.dumps(lang_params),
-            "nested_effects": nested_effects
+            "description_en": main_desc['en'], "description_ja": main_desc['ja'],
+            "params": json.dumps(lang_params)
         })
     return parsed_items
 
@@ -582,14 +602,21 @@ def write_results_to_csv(processed_data: list, output_path: Path):
         row = {'hero_id': hero.get('id'), 'hero_name': hero.get('name', 'N/A')}
         skills = hero.get('skillDescriptions', {})
         if de := skills.get('directEffect'): row.update({f'de_{k}': v for k, v in de.items()})
+        
         props = skills.get('properties', [])
         for i, p in enumerate(props[:3]):
             row.update({f'prop_{i+1}_{k}': v for k, v in p.items() if k != 'nested_effects'})
             if nested := p.get('nested_effects'):
                 for j, ne in enumerate(nested[:2]):
                      row.update({f'prop_{i+1}_nested_{j+1}_{k}': v for k, v in ne.items()})
+
         effects = skills.get('statusEffects', [])
         for i, e in enumerate(effects[:5]): row.update({f'se_{i+1}_{k}': v for k, v in e.items()})
+        
+        familiars = skills.get('familiars', [])
+        for i, f in enumerate(familiars[:2]):
+            row.update({f'fam_{i+1}_{k}': v for k, v in f.items() if k != 'nested_effects'})
+
         flat_data.append(row)
     try:
         df = pd.DataFrame(flat_data)
@@ -636,7 +663,6 @@ def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, parser
             'directEffect': parsers['direct_effect'](special_data, hero_final_stats, lang_db, game_db, parsers),
             'properties': parsers['properties'](prop_list, special_data, hero_final_stats, lang_db, game_db, parsers),
             'statusEffects': parsers['status_effects'](se_list, special_data, hero_final_stats, lang_db, game_db, parsers),
-            # --- NEW: Call the familiar parser ---
             'familiars': parsers['familiars'](familiar_list, special_data, hero_final_stats, lang_db, game_db, parsers)
         }
         processed_heroes_data.append(processed_hero)
@@ -655,25 +681,17 @@ def main():
         parsers = {
             'se_lang_subset': [key for key in language_db if key.startswith("specials.v2.statuseffect.")],
             'prop_lang_subset': [key for key in language_db if key.startswith("specials.v2.property.")],
-            'fam_lang_subset': [key for key in language_db if key.startswith("specials.v2.parasite.") or key.startswith("specials.v2.minion.")], # NEW
             'find_best_lang_id': find_best_lang_id,
             'direct_effect': parse_direct_effect,
             'properties': parse_properties,
             'status_effects': parse_status_effects,
-            'familiars': parse_familiars, # NEW
-            'familiar_effects': parse_familiar_effects # NEW
+            'familiars': parse_familiars,
         }
-        print(f" -> Found {len(parsers['se_lang_subset'])} status effect, {len(parsers['prop_lang_subset'])} property, and {len(parsers['fam_lang_subset'])} familiar language keys.")
+        print(f" -> Found {len(parsers['se_lang_subset'])} status effect and {len(parsers['prop_lang_subset'])} property language keys.")
 
         final_hero_data = process_all_heroes(language_db, game_db, hero_stats_db, parsers)
-        
         write_results_to_csv(final_hero_data, OUTPUT_CSV_PATH)
-        
-        debug_output_path = SCRIPT_DIR / "debug_hero_data.json"
-        write_debug_json(debug_data, debug_output_path)
-        
         print(f"\nProcess complete. Output saved to {OUTPUT_CSV_PATH}")
-        print(f"Debug data saved to {debug_output_path}")
 
         # --- Unresolved Placeholder Summary ---
         print("\n--- Analyzing unresolved placeholders in final output ---")
@@ -693,8 +711,12 @@ def main():
 
                 for item in items_to_check:
                     if not isinstance(item, dict): continue
+                    # Also check nested effects for unresolved placeholders
+                    if 'nested_effects' in item and isinstance(item['nested_effects'], list):
+                        items_to_check.extend(item['nested_effects'])
+
                     for key, text in item.items():
-                        if isinstance(text, str) and ('description' in key or 'tooltip' in key):
+                        if isinstance(text, str) and ('description' in key or 'tooltip' in key or key in ['en', 'ja']):
                             found = re.findall(r'(\{\w+\})', text)
                             if found:
                                 unresolved_counter.update(found)
@@ -713,7 +735,6 @@ def main():
     except Exception as e:
         print(f"\n[FATAL ERROR]: {type(e).__name__} - {e}")
         traceback.print_exc()
-
 # --- Main Execution Block ---
 if __name__ == "__main__":
     main()
