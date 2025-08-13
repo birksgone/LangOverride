@@ -352,7 +352,6 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
             print(f"\n  - WARNING: Property ID '{prop_id}' not found.")
             continue
 
-        # Pass parent block (special_data) to get context like targetType
         lang_id = find_best_lang_id(prop_details, prop_lang_subset, parent_block=special_data)
         lang_params = {}
         
@@ -363,7 +362,6 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         extra_template_text = lang_db.get(extra_lang_id, {}).get("en", "")
         all_placeholders = set(re.findall(r'\{(\w+)\}', main_template_text + extra_template_text))
         
-        # The search context for values includes the parent special data
         search_context = {**special_data, **prop_details}
 
         for p_holder in all_placeholders:
@@ -377,15 +375,14 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         if 'MIN' in all_placeholders and 'FIXEDPOWER' in lang_params:
             lang_params['MIN'] = math.floor(lang_params['FIXEDPOWER'] / 2)
 
-        # --- MODIFIED: Recursive call for nested status effects ---
+        # --- RECURSIVE CALL LOGIC ---
         nested_effects = []
         for key in ['statusEffects', 'statusEffectsPerHit']:
             if key in prop_details and isinstance(prop_details[key], list):
-                # Pass all necessary context down to the nested parser call
+                # Pass the main special_data as context for the nested call
                 nested_effects.extend(parsers['status_effects'](prop_details[key], special_data, hero_stats, lang_db, game_db, parsers))
 
         formatted_params = {k: format_value(v) for k, v in lang_params.items()}
-        # (This is the full formatting logic from the working version)
         template_str_for_check = main_template_text + extra_template_text
         for k, v in lang_params.items():
             formatted_val = format_value(v)
@@ -407,11 +404,9 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         tooltip_desc['ja'] = re.sub(r'\n\s*\n', '\n', tooltip_desc['ja']).strip()
 
         parsed_items.append({
-            "id": prop_id, "lang_id": lang_id,
-            "description_en": main_desc["en"], "description_ja": main_desc["ja"],
+            "id": prop_id, "lang_id": lang_id, "description_en": main_desc["en"], "description_ja": main_desc["ja"],
             "tooltip_en": tooltip_desc["en"], "tooltip_ja": tooltip_desc["ja"],
-            "params": json.dumps(lang_params),
-            "nested_effects": nested_effects
+            "params": json.dumps(lang_params), "nested_effects": nested_effects
         })
     return parsed_items
 
@@ -426,9 +421,10 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         effect_details = game_db['status_effects'].get(effect_id)
         if not effect_details: continue
 
+        # The instance (from the parent) can provide context like 'turns'
         combined_details = {**effect_details, **effect_instance}
         
-        # Pass parent block (special_data) to get context
+        # Pass the parent special_data to find_best_lang_id for context
         lang_id = find_best_lang_id(combined_details, se_lang_subset, parent_block=special_data)
 
         lang_params = {}
@@ -440,6 +436,7 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         if isinstance(status_effect_val, str) and 'modifier' in status_effect_val.lower():
             is_modifier_effect = True
         
+        # The search scope includes the parent special data and the effect's own data
         search_context = {**special_data, **combined_details}
 
         template_text_en = lang_db.get(lang_id, {}).get("en", "")
@@ -458,7 +455,7 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
                     lang_params[p_holder] = value
         
         formatted_params = {k: format_value(v) for k, v in lang_params.items()}
-        # (Rest of formatting logic as before)
+        # (Rest of formatting logic is the same)
         
         descriptions = generate_description(lang_id, formatted_params, lang_db)
         descriptions['en'] = re.sub(r'\n\s*\n', '\n', descriptions['en']).strip()
