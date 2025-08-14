@@ -131,14 +131,18 @@ def load_game_data() -> dict:
     game_data['status_effects'] = {se['id']: se for se in battle_config.get('statusEffects', [])}
     game_data['familiars'] = {f['id']: f for f in battle_config.get('familiars', [])}
     game_data['familiar_effects'] = {fe['id']: fe for fe in battle_config.get('familiarEffects', [])}
+    
+    # --- NEW: Load passive skill data ---
+    game_data['passive_skills'] = {ps['id']: ps for ps in battle_config.get('passiveSkills', [])}
 
-    # --- NEW: Create a master database for easy ID lookup ---
+    # Create a master database for easy ID lookup across all relevant tables
     game_data['master_db'] = {
         **game_data['character_specials'],
         **game_data['special_properties'],
         **game_data['status_effects'],
         **game_data['familiars'],
-        **game_data['familiar_effects']
+        **game_data['familiar_effects'],
+        **game_data['passive_skills'] # Add passives to the master DB
     }
 
     print(f" -> Loaded {len(game_data['heroes'])} heroes and created a master_db with {len(game_data['master_db'])} items.")
@@ -169,51 +173,51 @@ def get_full_hero_data(base_data: dict, game_db: dict) -> dict:
     _resolve_recursive(resolved_data, game_db['master_db'], processed_ids)
     return resolved_data
 
-def _resolve_recursive(current_data, master_db, processed_ids):
-    # This function is now much simpler as it only needs to check for 'id' keys
-    
-    if isinstance(current_data, dict):
-        # Use list(current_data.items()) to allow modification during iteration
-        for key, value in list(current_data.items()):
-            item_id = None
-            if key.lower().endswith('id') and isinstance(value, str):
-                item_id = value
-            
-            if item_id and item_id not in processed_ids:
-                if item_id in master_db:
-                    processed_ids.add(item_id)
-                    new_data = json.loads(json.dumps(master_db[item_id]))
-                    # Recursively resolve the new data block *before* merging
-                    _resolve_recursive(new_data, master_db, processed_ids)
-                    current_data[f"{key}_details"] = new_data
-            
-            # Continue traversal into nested structures
-            if isinstance(value, (dict, list)):
-                _resolve_recursive(value, master_db, processed_ids)
+def _resolve_recursive(current_data, master_db, processed_ids, parent_key=None):
+    # This check prevents infinite loops on the *exact same object instance*
+    # which can happen with complex data structures.
+    if id(current_data) in processed_ids:
+        return
+    processed_ids.add(id(current_data))
 
-    elif isinstance(current_data, list):
+    ID_CONTEXT_MAP = {
+        'specialId': 'character_specials', 'properties': 'special_properties',
+        'statusEffects': 'status_effects', 'statusEffectsPerHit': 'status_effects',
+        'summonedFamiliars': 'familiars', 'effects': 'familiar_effects',
+        'passiveSkills': 'passive_skills', 'costumeBonusPassiveSkillIds': 'passive_skills'
+    }
+
+    if isinstance(current_data, dict):
+        for key, value in list(current_data.items()):
+            # Recurse into nested structures, passing the current key as the parent context
+            if isinstance(value, (dict, list)):
+                _resolve_recursive(value, master_db, processed_ids, key)
+
+    elif isinstance(current_data, list) and parent_key in ID_CONTEXT_MAP:
+        # This is a list under a key that we know contains resolvable IDs
         for i, item in enumerate(current_data):
             item_id = None
+            # --- MODIFIED: Handle both string lists and dict lists correctly ---
             if isinstance(item, str):
                 item_id = item
             elif isinstance(item, dict) and 'id' in item:
-                item_id = item['id']
+                item_id = item.get('id')
 
-            if item_id and item_id not in processed_ids:
-                if item_id in master_db:
+            if item_id and item_id in master_db:
+                # To prevent re-resolving the same ID string/object in a loop
+                if item_id not in processed_ids:
                     processed_ids.add(item_id)
-                    new_data = json.loads(json.dumps(master_db[item_id]))
-                    _resolve_recursive(new_data, master_db, processed_ids)
                     
+                    new_data = json.loads(json.dumps(master_db[item_id]))
+                    
+                    # Recurse into the new data block *before* merging it
+                    _resolve_recursive(new_data, master_db, processed_ids, parent_key)
+                    
+                    # Now, merge/replace the item in the list
                     if isinstance(current_data[i], str):
-                        current_data[i] = new_data # Replace string with resolved dict
+                        current_data[i] = new_data  # Replace the string ID with the resolved dict
                     else:
-                        current_data[i].update(new_data) # Merge into existing dict
-            
-            # Continue traversal even if the item itself was resolved
-            if isinstance(item, (dict, list)):
-                 _resolve_recursive(item, master_db, processed_ids)
-
+                        current_data[i].update(new_data) # Merge details into the existing dict
 
 # --- Text Generation Helper ---
 def generate_description(lang_id: str, lang_params: dict, lang_db: dict) -> dict:
@@ -636,15 +640,21 @@ def write_debug_json(debug_data: dict, output_path: Path):
 
 
 # --- Main Processing Function ---
-def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, parsers: dict) -> list:
+def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, parsers: dict) -> (list, dict):
     print("\n--- Starting Hero Processing ---")
     all_heroes = game_db.get('heroes', [])
     processed_heroes_data = []
-    
+    all_heroes_debug_data = {}
+
     for i, hero in enumerate(all_heroes):
         hero_id = hero.get("id", "UNKNOWN")
         print(f"\r[{i+1}/{len(all_heroes)}] Processing: {hero_id.ljust(40)}", end="")
         
+        full_hero_data = get_full_hero_data(hero, game_db)
+        
+        # --- THIS LINE IS THE FIX ---
+        all_heroes_debug_data[hero_id] = full_hero_data # Ensure debug data is always collected
+
         hero_final_stats = get_hero_final_stats(hero_id, hero_stats_db)
         processed_hero = hero.copy()
         processed_hero['name'] = hero_final_stats.get('name')
@@ -668,11 +678,12 @@ def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, parser
         processed_heroes_data.append(processed_hero)
     
     print("\n" + "--- Finished processing all heroes. ---")
-    return processed_heroes_data
+    return processed_heroes_data, all_heroes_debug_data
 
 def main():
     """Main function to run the entire process."""
     try:
+        # --- Data Loading (The full, correct version) ---
         language_db = load_languages()
         game_db = load_game_data()
         hero_stats_db = load_hero_stats_from_csv(DATA_DIR, HERO_STATS_CSV_PATTERN)
@@ -685,13 +696,22 @@ def main():
             'direct_effect': parse_direct_effect,
             'properties': parse_properties,
             'status_effects': parse_status_effects,
-            'familiars': parse_familiars,
+            'familiars': parse_familiars
         }
         print(f" -> Found {len(parsers['se_lang_subset'])} status effect and {len(parsers['prop_lang_subset'])} property language keys.")
 
-        final_hero_data = process_all_heroes(language_db, game_db, hero_stats_db, parsers)
+        # --- Process heroes and get both final data and debug data ---
+        final_hero_data, debug_data = process_all_heroes(language_db, game_db, hero_stats_db, parsers)
+        
+        # --- Write main CSV output ---
         write_results_to_csv(final_hero_data, OUTPUT_CSV_PATH)
+        
+        # --- Write debug JSON output ---
+        debug_output_path = SCRIPT_DIR / "debug_hero_data.json"
+        write_debug_json(debug_data, debug_output_path)
+        
         print(f"\nProcess complete. Output saved to {OUTPUT_CSV_PATH}")
+        print(f"Debug data saved to {debug_output_path}")
 
         # --- Unresolved Placeholder Summary ---
         print("\n--- Analyzing unresolved placeholders in final output ---")
@@ -711,10 +731,8 @@ def main():
 
                 for item in items_to_check:
                     if not isinstance(item, dict): continue
-                    # Also check nested effects for unresolved placeholders
                     if 'nested_effects' in item and isinstance(item['nested_effects'], list):
                         items_to_check.extend(item['nested_effects'])
-
                     for key, text in item.items():
                         if isinstance(text, str) and ('description' in key or 'tooltip' in key or key in ['en', 'ja']):
                             found = re.findall(r'(\{\w+\})', text)
