@@ -173,71 +173,51 @@ def get_full_hero_data(base_data: dict, game_db: dict) -> dict:
     _resolve_recursive(resolved_data, game_db['master_db'], processed_ids)
     return resolved_data
 
-def _resolve_recursive(current_data, master_db, processed_ids):
-    """
-    Recursively traverses a data structure (dicts and lists) in place, finds IDs,
-    fetches the corresponding data from the master_db, resolves that new data recursively,
-    and merges it back. This version has robust list handling.
-    """
-    # Use the object's memory id to prevent processing the exact same object instance multiple times in a cycle
+def _resolve_recursive(current_data, master_db, processed_ids, parent_key=None):
+    # This check prevents infinite loops on the *exact same object instance*
+    # which can happen with complex data structures.
     if id(current_data) in processed_ids:
         return
     processed_ids.add(id(current_data))
-    
-    ID_KEYS_FOR_LISTS = [
-        'properties', 'statusEffects', 'statusEffectsPerHit',
-        'summonedFamiliars', 'effects', 'passiveSkills', 'costumeBonusPassiveSkillIds'
-    ]
+
+    ID_CONTEXT_MAP = {
+        'specialId': 'character_specials', 'properties': 'special_properties',
+        'statusEffects': 'status_effects', 'statusEffectsPerHit': 'status_effects',
+        'summonedFamiliars': 'familiars', 'effects': 'familiar_effects',
+        'passiveSkills': 'passive_skills', 'costumeBonusPassiveSkillIds': 'passive_skills'
+    }
 
     if isinstance(current_data, dict):
-        # Iterate over a copy of items, as the dictionary may be modified during the loop
         for key, value in list(current_data.items()):
-            # Case 1: The key is a direct reference to a single ID string (e.g., "specialId")
-            if key.lower().endswith('id') and isinstance(value, str):
-                if value in master_db and value not in processed_ids:
-                    processed_ids.add(value)
-                    new_data = json.loads(json.dumps(master_db[value]))
-                    # Recurse into the new data block *before* adding it
-                    _resolve_recursive(new_data, master_db, processed_ids)
-                    current_data[f"{key}_details"] = new_data
-            
-            # Case 2: The value is a list that might contain resolvable items.
-            # We check if the key is one of our known list types.
-            elif key in ID_KEYS_FOR_LISTS and isinstance(value, list):
-                _resolve_recursive(value, master_db, processed_ids) # Pass the list itself to the list handler
-            
-            # Case 3: The value is just another structure to traverse into.
-            elif isinstance(value, (dict, list)):
-                _resolve_recursive(value, master_db, processed_ids)
+            # Recurse into nested structures, passing the current key as the parent context
+            if isinstance(value, (dict, list)):
+                _resolve_recursive(value, master_db, processed_ids, key)
 
-    elif isinstance(current_data, list):
-        # Case 4: We are now processing a list's items.
+    elif isinstance(current_data, list) and parent_key in ID_CONTEXT_MAP:
+        # This is a list under a key that we know contains resolvable IDs
         for i, item in enumerate(current_data):
-            item_id_to_resolve = None
-            
-            # The item can be a string ID (like in 'passiveSkills')
+            item_id = None
+            # --- MODIFIED: Handle both string lists and dict lists correctly ---
             if isinstance(item, str):
-                item_id_to_resolve = item
-            # Or a dictionary with an 'id' key (like in 'statusEffects')
+                item_id = item
             elif isinstance(item, dict) and 'id' in item:
-                item_id_to_resolve = item.get('id')
+                item_id = item.get('id')
 
-            if item_id_to_resolve and item_id_to_resolve in master_db and item_id_to_resolve not in processed_ids:
-                processed_ids.add(item_id_to_resolve)
-                new_data = json.loads(json.dumps(master_db[item_id_to_resolve]))
-                
-                # IMPORTANT: Recurse into the new data block to resolve its children
-                _resolve_recursive(new_data, master_db, processed_ids)
-                
-                # Now, replace or update the item in the list with the fully resolved data
-                if isinstance(current_data[i], str):
-                    current_data[i] = new_data
-                else:
-                    current_data[i].update(new_data)
-            
-            # Even if the item was resolved, it might contain further nested structures to traverse
-            elif isinstance(item, (dict, list)):
-                 _resolve_recursive(item, master_db, processed_ids)
+            if item_id and item_id in master_db:
+                # To prevent re-resolving the same ID string/object in a loop
+                if item_id not in processed_ids:
+                    processed_ids.add(item_id)
+                    
+                    new_data = json.loads(json.dumps(master_db[item_id]))
+                    
+                    # Recurse into the new data block *before* merging it
+                    _resolve_recursive(new_data, master_db, processed_ids, parent_key)
+                    
+                    # Now, merge/replace the item in the list
+                    if isinstance(current_data[i], str):
+                        current_data[i] = new_data  # Replace the string ID with the resolved dict
+                    else:
+                        current_data[i].update(new_data) # Merge details into the existing dict
 
 # --- Text Generation Helper ---
 def generate_description(lang_id: str, lang_params: dict, lang_db: dict) -> dict:
@@ -395,8 +375,9 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dic
     if not potential_matches:
         return f"SEARCH_FAILED_FOR_{data_block.get('id', 'UNKNOWN_ID')}"
 
-    potential_matches.sort(key=lambda x: (-x['score'], len(x['key'])))
-    
+    # Sort by score (descending), then by key length (descending) to prioritize more specific keys
+    potential_matches.sort(key=lambda x: (-x['score'], -len(x['key'])))
+
     return potential_matches[0]['key']
 
 def parse_direct_effect(special_data, hero_stats, lang_db, game_db, parsers):
@@ -496,8 +477,26 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
              if p not in formatted_params:
                  formatted_params[p] = f"{{{p}}}"
 
+        # If there are nested effects and the placeholder exists, format them.
+        if "STATUSEFFECTS" in all_placeholders and nested_effects:
+            # Create bulleted lists for each language from the nested effect descriptions
+            status_effects_en = "\n".join([f"• {ne.get('en', '')}" for ne in nested_effects])
+            status_effects_ja = "\n".join([f"• {ne.get('ja', '')}" for ne in nested_effects])
+            # Add these to the parameters that will be used for replacement
+            # Note: This is a special case; other params are single values, these are language-specific.
+            formatted_params["STATUSEFFECTS_EN"] = status_effects_en
+            formatted_params["STATUSEFFECTS_JA"] = status_effects_ja
+
         main_desc = generate_description(lang_id, formatted_params, lang_db)
         tooltip_desc = generate_description(extra_lang_id, formatted_params, lang_db) if extra_lang_id in lang_db else {"en": "", "ja": ""}
+
+        # Manual replacement for language-specific placeholders like STATUSEFFECTS
+        if "STATUSEFFECTS_EN" in formatted_params:
+            main_desc['en'] = main_desc['en'].replace("{STATUSEFFECTS}", formatted_params["STATUSEFFECTS_EN"])
+            main_desc['ja'] = main_desc['ja'].replace("{STATUSEFFECTS}", formatted_params["STATUSEFFECTS_JA"])
+            tooltip_desc['en'] = tooltip_desc['en'].replace("{STATUSEFFECTS}", formatted_params["STATUSEFFECTS_EN"])
+            tooltip_desc['ja'] = tooltip_desc['ja'].replace("{STATUSEFFECTS}", formatted_params["STATUSEFFECTS_JA"])
+
 
         main_desc['en'] = re.sub(r'\n\s*\n', '\n', main_desc['en']).strip()
         main_desc['ja'] = re.sub(r'\n\s*\n', '\n', main_desc['ja']).strip()
