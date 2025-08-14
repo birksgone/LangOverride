@@ -9,5 +9,11 @@
       "value": 10,
       "calc": "fixed"
     }
+  },
+  "ADDITIONAL_SKILLS": {
+  "buffToRemove": {
+    "prefix": "specials.v2.clearbuffs",
+    "keywords": ["buffToRemove", "buffToRemoveSideAffected"]
   }
+}
 }

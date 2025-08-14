@@ -174,12 +174,16 @@ def get_full_hero_data(base_data: dict, game_db: dict) -> dict:
     return resolved_data
 
 def _resolve_recursive(current_data, master_db, processed_ids, parent_key=None):
-    # This check prevents infinite loops on the *exact same object instance*
-    # which can happen with complex data structures.
+    """
+    Recursively traverses a data structure (dicts and lists) in place, finds IDs,
+    fetches the corresponding data from the master_db, resolves that new data recursively,
+    and merges it back. This version correctly handles parent context for lists.
+    """
+    # Use the object's memory id to prevent processing the exact same object instance multiple times
     if id(current_data) in processed_ids:
         return
     processed_ids.add(id(current_data))
-
+    
     ID_CONTEXT_MAP = {
         'specialId': 'character_specials', 'properties': 'special_properties',
         'statusEffects': 'status_effects', 'statusEffectsPerHit': 'status_effects',
@@ -188,36 +192,44 @@ def _resolve_recursive(current_data, master_db, processed_ids, parent_key=None):
     }
 
     if isinstance(current_data, dict):
+        # Iterate over a copy of items, as the dictionary may be modified
         for key, value in list(current_data.items()):
-            # Recurse into nested structures, passing the current key as the parent context
-            if isinstance(value, (dict, list)):
+            # Case 1: Key is a direct ID reference (e.g., "specialId")
+            if key.lower().endswith('id') and isinstance(value, str) and value not in processed_ids:
+                if value in master_db:
+                    processed_ids.add(value)
+                    new_data = json.loads(json.dumps(master_db[value]))
+                    # Recurse into the new data block before adding it
+                    _resolve_recursive(new_data, master_db, processed_ids, key)
+                    current_data[f"{key}_details"] = new_data
+            
+            # Case 2: Value is a list or dict, traverse into it, passing the current key as the parent context
+            elif isinstance(value, (dict, list)):
                 _resolve_recursive(value, master_db, processed_ids, key)
 
     elif isinstance(current_data, list) and parent_key in ID_CONTEXT_MAP:
-        # This is a list under a key that we know contains resolvable IDs
+        # Case 3: We are now processing a list whose parent key tells us it contains resolvable IDs
         for i, item in enumerate(current_data):
-            item_id = None
-            # --- MODIFIED: Handle both string lists and dict lists correctly ---
+            item_id_to_resolve = None
+            
             if isinstance(item, str):
-                item_id = item
+                item_id_to_resolve = item
             elif isinstance(item, dict) and 'id' in item:
-                item_id = item.get('id')
+                item_id_to_resolve = item.get('id')
 
-            if item_id and item_id in master_db:
-                # To prevent re-resolving the same ID string/object in a loop
-                if item_id not in processed_ids:
-                    processed_ids.add(item_id)
-                    
-                    new_data = json.loads(json.dumps(master_db[item_id]))
-                    
-                    # Recurse into the new data block *before* merging it
-                    _resolve_recursive(new_data, master_db, processed_ids, parent_key)
-                    
-                    # Now, merge/replace the item in the list
-                    if isinstance(current_data[i], str):
-                        current_data[i] = new_data  # Replace the string ID with the resolved dict
-                    else:
-                        current_data[i].update(new_data) # Merge details into the existing dict
+            if item_id_to_resolve and item_id_to_resolve in master_db and item_id_to_resolve not in processed_ids:
+                processed_ids.add(item_id_to_resolve)
+                
+                new_data = json.loads(json.dumps(master_db[item_id_to_resolve]))
+                
+                # Recurse into the new data block to resolve its children, passing the same parent context
+                _resolve_recursive(new_data, master_db, processed_ids, parent_key)
+                
+                # Replace or update the item in the list with the fully resolved data
+                if isinstance(current_data[i], str):
+                    current_data[i] = new_data
+                else:
+                    current_data[i].update(new_data)
 
 # --- Text Generation Helper ---
 def generate_description(lang_id: str, lang_params: dict, lang_db: dict) -> dict:
@@ -339,13 +351,12 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dic
     
     if parent_block and isinstance(parent_block, dict):
         context_keys = ['targettype', 'sideaffected']
-        # We don't need to flatten here, just check the top level of the parent
         for key in context_keys:
             if key in parent_block and isinstance(parent_block[key], str):
-                # Add parent context, but don't override child's specific context
                 if key not in keywords:
                     keywords[key] = parent_block[key].lower()
 
+    # --- MODIFIED: Give 'statuseffect' the same top priority as 'propertytype' ---
     primary_keyword = keywords.get('propertytype') or keywords.get('statuseffect')
     
     potential_matches = []
@@ -375,9 +386,8 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dic
     if not potential_matches:
         return f"SEARCH_FAILED_FOR_{data_block.get('id', 'UNKNOWN_ID')}"
 
-    # Sort by score (descending), then by key length (descending) to prioritize more specific keys
-    potential_matches.sort(key=lambda x: (-x['score'], -len(x['key'])))
-
+    potential_matches.sort(key=lambda x: (-x['score'], len(x['key'])))
+    
     return potential_matches[0]['key']
 
 def parse_direct_effect(special_data, hero_stats, lang_db, game_db, parsers):
