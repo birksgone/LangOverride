@@ -355,45 +355,90 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, is
             return int(calculated_val), found_key
 
 def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dict = None) -> str:
+    """
+    Finds the best language ID using a hierarchical approach.
+    1. Attempts to directly construct the ID for status effects based on strict rules.
+    2. If that fails, falls back to a scoring mechanism for more complex cases.
+    """
+    
+    # --- Phase 1: Direct Construction for Status Effects ---
+    if 'statusEffect' in data_block:
+        
+        buff_map = {
+            "MinorDebuff": "minor", "MajorDebuff": "major",
+            "MinorBuff": "minor", "MajorBuff": "major"
+        }
+        
+        intensity = buff_map.get(data_block.get('buff'))
+        
+        # --- FIX: Ensure statusEffect is a string before calling .lower() ---
+        status_effect_val = data_block.get('statusEffect')
+        effect_name = status_effect_val.lower() if isinstance(status_effect_val, str) else None
+        
+        target = (parent_block or data_block).get('statusTargetType', '').lower()
+        side = (parent_block or data_block).get('sideAffected', '').lower()
+
+        if all([intensity, effect_name, target, side]):
+            constructed_id = f"specials.v2.statuseffect.{intensity}.{effect_name}.{target}.{side}"
+            if constructed_id in lang_key_subset:
+                return constructed_id
+
+    # --- Phase 2: Fallback to Scoring Mechanism ---
     keywords = {k.lower(): v.lower() for k, v in data_block.items() if isinstance(v, str)}
     
     if parent_block and isinstance(parent_block, dict):
-        context_keys = ['targettype', 'sideaffected']
-        # We don't need to flatten here, just check the top level of the parent
+        context_keys = ['targettype', 'sideaffected', 'statustargettype']
         for key in context_keys:
             if key in parent_block and isinstance(parent_block[key], str):
-                # Add parent context, but don't override child's specific context
                 if key not in keywords:
                     keywords[key] = parent_block[key].lower()
 
-    primary_keyword = keywords.get('propertytype') or keywords.get('statuseffect')
+    # --- FIX: Ensure primary keyword source values are strings before processing ---
+    prop_type = keywords.get('propertytype')
+    status_effect = keywords.get('statuseffect')
     
+    primary_keyword_raw = prop_type or status_effect
+    primary_keyword = primary_keyword_raw.strip() if isinstance(primary_keyword_raw, str) else None
+    
+    # --- Step 2a: Filter candidates based on the primary keyword ---
+    filtered_candidates = []
+    if primary_keyword:
+        for lang_key in lang_key_subset:
+            if primary_keyword in lang_key.split('.'):
+                filtered_candidates.append(lang_key)
+    
+    if not filtered_candidates:
+        filtered_candidates = lang_key_subset
+
+    # --- Step 2b: Score the filtered candidates ---
     potential_matches = []
-    for lang_key in lang_key_subset:
+    for lang_key in filtered_candidates:
         score = 0
         normalized_lang_key = lang_key.lower()
+        lang_key_parts = normalized_lang_key.split('.')
 
-        if primary_keyword and primary_keyword in normalized_lang_key:
+        if primary_keyword and primary_keyword in lang_key_parts:
             score += 100
         
-        other_keywords = {'effecttype', 'targettype', 'sideaffected', 'buff'}
+        other_keywords = {'effecttype', 'targettype', 'sideaffected', 'buff', 'statustargettype'}
         for key_name in other_keywords:
             if value := keywords.get(key_name):
-                if value in normalized_lang_key:
+                if value.lower() in lang_key_parts:
                     score += 5
 
-        if 'fixedpower' in normalized_lang_key and ('fixedPower' in data_block or data_block.get('hasFixedPower')):
+        if 'fixedpower' in lang_key_parts and ('fixedPower' in data_block or data_block.get('hasFixedPower')):
             score += 3
         
         for val in data_block.values():
-            if isinstance(val, (int, float)) and val < 0 and 'decrement' in normalized_lang_key:
+            if isinstance(val, (int, float)) and val < 0 and 'decrement' in lang_key_parts:
                 score += 2
 
         if score > 0:
             potential_matches.append({'key': lang_key, 'score': score})
 
     if not potential_matches:
-        return f"SEARCH_FAILED_FOR_{data_block.get('id', 'UNKNOWN_ID')}"
+        fallback_id = f"SEARCH_FAILED_FOR_{data_block.get('id', 'UNKNOWN_ID')}_TYPE_{primary_keyword}"
+        return fallback_id
 
     potential_matches.sort(key=lambda x: (-x['score'], len(x['key'])))
     
