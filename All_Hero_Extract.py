@@ -315,17 +315,37 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, is
             return int(calculated_val), found_key
 
 def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dict = None) -> str:
+    # This function attempts to find the most appropriate language key for a given data block.
+    
+    # --- Phase 1: Direct Construction for Status Effects ---
+    # Attempts to build a perfect lang_id from parts for common status effects.
     if 'statusEffect' in data_block:
-        buff_map = {"MinorDebuff": "minor", "MajorDebuff": "major", "MinorBuff": "minor", "MajorBuff": "major"}
+        
+        # --- MODIFIED: Added rules for Permanent Buffs/Debuffs ---
+        buff_map = {
+            "MinorDebuff": "minor", "MajorDebuff": "major",
+            "MinorBuff": "minor", "MajorBuff": "major",
+            "PermanentDebuff": "permanent", "PermanentBuff": "permanent"
+        }
+        
         intensity = buff_map.get(data_block.get('buff'))
         status_effect_val = data_block.get('statusEffect')
         effect_name = status_effect_val.lower() if isinstance(status_effect_val, str) else None
+        
+        # Context can come from the parent block (e.g., a property) or the effect itself.
         target = (parent_block or data_block).get('statusTargetType', '').lower()
         side = (parent_block or data_block).get('sideAffected', '').lower()
+
         if all([intensity, effect_name, target, side]):
             constructed_id = f"specials.v2.statuseffect.{intensity}.{effect_name}.{target}.{side}"
-            if constructed_id in lang_key_subset: return constructed_id
+            # If the perfectly constructed ID exists, we're confident it's the right one.
+            if constructed_id in lang_key_subset: 
+                return constructed_id
 
+    # --- Phase 2: Fallback to Scoring Mechanism ---
+    # This runs if direct construction fails or for non-status-effect types (like properties).
+    
+    # Collect all string values from the data block to use as keywords.
     keywords = {k.lower(): v.lower() for k, v in data_block.items() if isinstance(v, str)}
     if parent_block and isinstance(parent_block, dict):
         context_keys = ['targettype', 'sideaffected', 'statustargettype']
@@ -333,32 +353,47 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dic
             if key in parent_block and isinstance(parent_block[key], str):
                 if key not in keywords: keywords[key] = parent_block[key].lower()
 
+    # Determine the primary keyword (the most important identifier for the effect).
     prop_type, status_effect = keywords.get('propertytype'), keywords.get('statuseffect')
     primary_keyword_raw = prop_type or status_effect
     primary_keyword = primary_keyword_raw.strip() if isinstance(primary_keyword_raw, str) else None
     
+    # Filter the list of all language keys to only those containing the primary keyword.
     filtered_candidates = []
     if primary_keyword:
         for lang_key in lang_key_subset:
-            if primary_keyword in lang_key.split('.'): filtered_candidates.append(lang_key)
-    if not filtered_candidates: filtered_candidates = lang_key_subset
+            if primary_keyword in lang_key.split('.'): 
+                filtered_candidates.append(lang_key)
+    
+    if not filtered_candidates: 
+        filtered_candidates = lang_key_subset
 
+    # Score the filtered candidates based on how many keywords they match.
     potential_matches = []
     for lang_key in filtered_candidates:
         score, lang_key_parts = 0, lang_key.lower().split('.')
-        if primary_keyword and primary_keyword in lang_key_parts: score += 100
+        
+        if primary_keyword and primary_keyword in lang_key_parts: 
+            score += 100
         
         other_keywords = {'effecttype', 'targettype', 'sideaffected', 'buff', 'statustargettype'}
         for key_name in other_keywords:
             if value := keywords.get(key_name):
-                if value.lower() in lang_key_parts: score += 5
+                if value.lower() in lang_key_parts: 
+                    score += 5
 
-        if 'fixedpower' in lang_key_parts and ('fixedPower' in data_block or data_block.get('hasFixedPower')): score += 3
-        if any(isinstance(v, (int, float)) and v < 0 for v in data_block.values()) and 'decrement' in lang_key_parts: score += 2
+        if 'fixedpower' in lang_key_parts and ('fixedPower' in data_block or data_block.get('hasFixedPower')): 
+            score += 3
+        if any(isinstance(v, (int, float)) and v < 0 for v in data_block.values()) and 'decrement' in lang_key_parts: 
+            score += 2
 
-        if score > 0: potential_matches.append({'key': lang_key, 'score': score})
+        if score > 0: 
+            potential_matches.append({'key': lang_key, 'score': score})
 
-    if not potential_matches: return f"SEARCH_FAILED_FOR_{data_block.get('id', 'UNKNOWN_ID')}_TYPE_{primary_keyword}"
+    if not potential_matches: 
+        return f"SEARCH_FAILED_FOR_{data_block.get('id', 'UNKNOWN_ID')}_TYPE_{primary_keyword}"
+    
+    # The best match is the one with the highest score, breaking ties with the shortest length.
     potential_matches.sort(key=lambda x: (-x['score'], len(x['key'])))
     return potential_matches[0]['key']
 
