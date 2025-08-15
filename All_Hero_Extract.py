@@ -272,8 +272,10 @@ def format_value(value):
 
 def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, is_modifier: bool = False) -> (any, str):
     """
-    Finds and calculates a value. First checks for manual rules in EXCEPTION_RULES,
-    then falls back to automatic inference logic.
+    Finds and calculates a value using a hierarchical approach.
+    1. Checks for a manual override in EXCEPTION_RULES.
+    2. (Future idea) Tries a "single numeric" rule.
+    3. Falls back to an improved keyword-matching logic.
     """
     # --- Step 1: Check for a manual rule in EXCEPTION_RULES ---
     p_holder_upper = p_holder.upper()
@@ -290,30 +292,31 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, is
         if key_to_find in flat_data:
             value = flat_data[key_to_find]
             if calc_method == 'direct':
-                # Assuming direct values are integers for now
                 return int(value), key_to_find
-            # Future calculation methods like 'permil' for rules can be added here
         
-        # If a rule exists but the key isn't found, stop here.
         return None, f"Exception rule key '{key_to_find}' not found"
 
-    # --- Step 2: Fallback to existing automatic logic if no rule is found ---
+    # --- Step 2: Fallback to improved automatic logic ---
     if not isinstance(data_block, dict): return None, None
     flat_data = flatten_json(data_block)
     
-    # The old 'MAXSTACK' check is now removed from here.
+    # NOTE: The "single numeric rule" is complex to implement safely here without
+    # knowing the context of other placeholders in the template.
+    # Instead, we are improving the general keyword matching to be more flexible.
 
     normalized_pholder = p_holder.lower()
     is_chance_related = 'chance' in normalized_pholder
     
-    # (The rest of the automatic inference logic remains the same)
+    # Decompose placeholder into keywords, e.g., "SecondaryAbsPower" -> ["secondary", "abs", "power"]
     ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', p_holder)]
     if not ph_keywords: ph_keywords = [normalized_pholder]
 
+    # Handle indexed placeholders like "Value1", "Value2"
     ph_base_name, ph_index = normalized_pholder, None
     match = re.match(r'(\w+)(\d+)$', normalized_pholder)
     if match:
         base, index_str = match.groups()
+        # Regenerate keywords from the base name
         ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', base.capitalize())]
         if not ph_keywords: ph_keywords = [base]
         ph_index = int(index_str) - 1
@@ -321,11 +324,18 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, is
     candidate_keys = []
     for key in flat_data:
         key_lower = key.lower()
+
+        # Simple filters to avoid incorrect matches
         if not is_chance_related and 'chance' in key_lower: continue
         if is_chance_related and 'chance' not in key_lower: continue
-        search_key = key_lower.replace('generation', 'regen').replace('value', 'power')
-        if all(part in search_key for part in ph_keywords):
+        
+        # This is the new, more flexible matching logic.
+        # It checks if at least one keyword from the placeholder is in the data key.
+        # This is better than the previous strict `all()` check.
+        search_key = key_lower.replace('generation', 'regen').replace('value', 'power') # Normalize some common terms
+        if any(part in search_key for part in ph_keywords):
             if ph_index is not None:
+                # If placeholder is indexed (e.g., Value2), the key must also somehow reference that index
                 if f"_{ph_index}_" in key_lower or key_lower.endswith(f"_{ph_index}"):
                     candidate_keys.append(key)
             else:
@@ -333,24 +343,33 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, is
     
     if not candidate_keys: return None, None
     
+    # From the candidates, find the best one.
+    # Prioritize keys that contain specific terms like 'power', 'modifier', etc.
     priority_keywords = ['power', 'modifier', 'fixed', 'multiplier', 'permil']
     priority_keys = [k for k in candidate_keys if any(kw in k.lower() for kw in priority_keywords)]
+    
+    # The best key is the shortest one from the priority list, or from the general list if no priority keys found.
     found_key = min(priority_keys, key=len) if priority_keys else min(candidate_keys, key=len)
 
+    # --- Value Calculation (using the found_key) ---
     base_val = flat_data.get(found_key, 0)
+    
+    # Dynamically find the corresponding increment key
     inc_key_pattern = found_key.lower().replace("permil", "incrementperlevelpermil").replace('fixedpower', 'fixedpowerincrementperlevel')
     inc_key = next((k for k in flat_data if k.lower() == inc_key_pattern), None)
     inc_val = flat_data.get(inc_key, 0)
 
     if not isinstance(base_val, (int, float)): return None, None
     
+    # Calculate final value based on level and whether it's a modifier
     if is_modifier:
+        # Modifiers are typically 1000-based, representing 100.0%
         calculated_val = ((base_val - 1000) + (inc_val * (max_level - 1))) / 10
         return calculated_val, found_key
     else:
         calculated_val = base_val + inc_val * (max_level - 1)
         if 'permil' in found_key.lower():
-            return calculated_val / 10, found_key
+            return calculated_val / 10, found_key # Permil means "per thousand", so divide by 10 for percentage
         else:
             return int(calculated_val), found_key
 
