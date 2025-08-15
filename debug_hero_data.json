@@ -73726,14 +73726,38 @@
               "maxLevel": 8,
               "properties": [
                 "eat_minions_followers_all",
-                "galapago_costume_health_per_eaten_familiar"
+                {
+                  "propertyType": "EffectPerEatenFamiliar",
+                  "id": "galapago_costume_health_per_eaten_familiar",
+                  "familiarTypes": [
+                    "Minion",
+                    "Follower"
+                  ],
+                  "statusEffect": {
+                    "id": "galapago_costume_stacking_health",
+                    "id_details": {
+                      "statusEffect": "StackingHealthGeneration",
+                      "id": "galapago_costume_stacking_health",
+                      "buff": "StackMinorBuff",
+                      "healthPoints": 9,
+                      "healthPointsIncrementPerLevel": 3
+                    }
+                  },
+                  "effectType": "None",
+                  "targetType": "Single",
+                  "sideAffected": "Allies"
+                }
               ],
               "statusEffects": [
                 {
                   "id": "galapago_costume_defense2",
                   "sideAffected": "Allies",
                   "statusTargetType": "All",
-                  "turns": 4
+                  "turns": 4,
+                  "statusEffect": "DefenseModifier",
+                  "buff": "MinorBuff",
+                  "defenseMultiplierPerMil": 1410,
+                  "defenseMultiplierIncrementPerLevelPerMil": 20
                 }
               ]
             }

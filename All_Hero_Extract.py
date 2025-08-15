@@ -502,11 +502,14 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
     max_level = special_data.get("maxLevel", 1)
     prop_lang_subset = parsers['prop_lang_subset']
     
+    # --- NEW: Pattern to identify structured placeholders ---
+    structured_ph_pattern = re.compile(r'^(STATUSEFFECT|REMOVALEFFECT)(\d+)(\w+)$', re.IGNORECASE)
+
     for prop_id_or_dict in properties_list:
+        # ... (code to get prop_details is unchanged) ...
         prop_details = {}
         prop_id = None
         
-        # Handle both string IDs and pre-resolved dictionaries
         if isinstance(prop_id_or_dict, dict):
             prop_details = prop_id_or_dict
             prop_id = prop_details.get('id')
@@ -515,12 +518,10 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
             prop_details = game_db['special_properties'].get(prop_id)
 
         if not prop_details:
-            print(f"\n  - WARNING: Property ID '{prop_id}' not found.")
             continue
 
         lang_id = find_best_lang_id(prop_details, prop_lang_subset, parent_block=special_data)
         lang_params = {}
-        
         is_modifier_effect = 'modifier' in prop_details.get('propertyType', '').lower()
 
         main_template_text = lang_db.get(lang_id, {}).get("en", "")
@@ -528,14 +529,42 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         extra_template_text = lang_db.get(extra_lang_id, {}).get("en", "")
         all_placeholders = set(re.findall(r'\{(\w+)\}', main_template_text + extra_template_text))
         
-        search_context = {**special_data, **prop_details}
+        # Base context for simple placeholders
+        search_context_base = {**special_data, **prop_details}
 
         for p_holder in all_placeholders:
             if p_holder in lang_params: continue
-            value, _ = find_and_calculate_value(p_holder, search_context, max_level, is_modifier_effect)
-            if value is not None:
-                lang_params[p_holder] = value
+
+            match = structured_ph_pattern.match(p_holder)
+            if match:
+                # --- Handle structured placeholders like STATUSEFFECT1TURNS ---
+                _, index_str, prop_name_hint = match.groups()
+                index = int(index_str) - 1
+
+                # Check for nested lists within the current property
+                list_keys_to_check = ['statusEffects', 'statusEffectsPerHit', 'removalEffects']
+                target_list = None
+                for key in list_keys_to_check:
+                    if key in prop_details and isinstance(prop_details[key], list):
+                        target_list = prop_details[key]
+                        break
+                
+                if target_list and 0 <= index < len(target_list):
+                    nested_effect_block = target_list[index]
+                    # Create a new, highly specific context for the search
+                    search_context_nested = {**special_data, **nested_effect_block}
+                    
+                    # Find the value for the actual property (e.g., 'TURNS')
+                    value, _ = find_and_calculate_value(prop_name_hint, search_context_nested, max_level, is_modifier_effect)
+                    if value is not None:
+                        lang_params[p_holder] = value
+            else:
+                # --- Handle simple placeholders as before ---
+                value, _ = find_and_calculate_value(p_holder, search_context_base, max_level, is_modifier_effect)
+                if value is not None:
+                    lang_params[p_holder] = value
         
+        # ... (rest of the function for formatting and appending results is unchanged) ...
         if 'MAX' in all_placeholders and 'FIXEDPOWER' in lang_params:
             lang_params['MAX'] = lang_params['FIXEDPOWER'] * 2
         if 'MIN' in all_placeholders and 'FIXEDPOWER' in lang_params:
@@ -544,7 +573,6 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         nested_effects = []
         for key in ['statusEffects', 'statusEffectsPerHit']:
             if key in prop_details and isinstance(prop_details[key], list):
-                # IMPORTANT: Pass special_data for context, NOT prop_details
                 nested_effects.extend(parsers['status_effects'](prop_details[key], special_data, hero_stats, lang_db, game_db, parsers))
 
         template_str_for_check = main_template_text + extra_template_text
@@ -573,6 +601,79 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
             "tooltip_en": tooltip_desc["en"], "tooltip_ja": tooltip_desc["ja"],
             "params": json.dumps(lang_params), "nested_effects": nested_effects
         })
+    return parsed_items
+
+def parse_status_effects(status_effects_list: list, special_data: dict, hero_stats: dict, lang_db: dict, game_db: dict, parsers: dict) -> list:
+    if not status_effects_list: return []
+    parsed_items = []
+    max_level = special_data.get("maxLevel", 1)
+    se_lang_subset = parsers['se_lang_subset']
+    
+    # --- NEW: Pattern to identify structured placeholders ---
+    structured_ph_pattern = re.compile(r'^(STATUSEFFECT|REMOVALEFFECT)(\d+)(\w+)$', re.IGNORECASE)
+
+    for effect_instance in status_effects_list:
+        # ... (code to get effect_details and combined_details is unchanged) ...
+        effect_id = effect_instance.get("id")
+        effect_details = game_db['status_effects'].get(effect_id)
+        if not effect_details: continue
+
+        combined_details = {**effect_details, **effect_instance}
+        lang_id = find_best_lang_id(combined_details, se_lang_subset, parent_block=special_data)
+        lang_params = {}
+        if (turns := effect_instance.get("turns", 0)) > 0: 
+            lang_params["TURNS"] = turns
+        
+        is_modifier_effect = 'modifier' in effect_details.get('statusEffect', '').lower()
+        template_text_en = lang_db.get(lang_id, {}).get("en", "")
+        placeholders = set(re.findall(r'\{(\w+)\}', template_text_en))
+        
+        for p_holder in placeholders:
+            if p_holder in lang_params: continue
+            
+            match = structured_ph_pattern.match(p_holder)
+            if match:
+                # --- Handle structured placeholders like STATUSEFFECT1TURNS ---
+                _, index_str, prop_name_hint = match.groups()
+                index = int(index_str) - 1
+
+                # Check for nested lists within the current status effect
+                list_keys_to_check = ['statusEffectsToAdd', 'removalEffects', 'effects']
+                target_list = None
+                for key in list_keys_to_check:
+                    if key in combined_details and isinstance(combined_details[key], list):
+                        target_list = combined_details[key]
+                        break
+                
+                if target_list and 0 <= index < len(target_list):
+                    nested_effect_block = target_list[index]
+                    # Create a new, highly specific context for the search
+                    search_context_nested = {**special_data, **nested_effect_block}
+                    
+                    # Find the value for the actual property (e.g., 'TURNS')
+                    value, _ = find_and_calculate_value(prop_name_hint, search_context_nested, max_level, is_modifier_effect)
+                    if value is not None:
+                        lang_params[p_holder] = value
+            else:
+                # --- Handle simple placeholders as before ---
+                search_context = {**special_data, **combined_details}
+                value, found_key = find_and_calculate_value(p_holder, search_context, max_level, is_modifier_effect)
+                
+                if value is not None:
+                    if p_holder.upper() == "DAMAGE" and "permil" in (found_key or "").lower():
+                        is_total = "over {TURNS} turns" in template_text_en
+                        damage_per_turn = math.floor((value / 100) * hero_stats.get("max_attack", 0))
+                        lang_params[p_holder] = damage_per_turn * (turns or 1) if is_total else damage_per_turn
+                    else:
+                        lang_params[p_holder] = value
+
+        # ... (rest of the function for formatting and appending results is unchanged) ...
+        formatted_params = {k: format_value(v) for k, v in lang_params.items()}
+        descriptions = generate_description(lang_id, formatted_params, lang_db)
+        descriptions['en'] = re.sub(r'\n\s*\n', '\n', descriptions['en']).strip()
+        descriptions['ja'] = re.sub(r'\n\s*\n', '\n', descriptions['ja']).strip()
+        parsed_items.append({ "id": effect_id, "lang_id": lang_id, "params": json.dumps(lang_params), **descriptions})
+        
     return parsed_items
 
 def parse_status_effects(status_effects_list: list, special_data: dict, hero_stats: dict, lang_db: dict, game_db: dict, parsers: dict) -> list:
