@@ -1,0 +1,2 @@
+hero_id,skill_id,lang_id,Memo
+,dire_ghost_salvatore,specials.v2.statuseffect.major.direghoststatuseffectskill.single.allies.on.turnend.damage.random.enemies.add_insanity_salvatore,shadow_salvatoreのlang_idがおかしかったため
