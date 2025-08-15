@@ -111,7 +111,6 @@ def get_hero_final_stats(hero_id: str, hero_stats_db: dict) -> dict:
     return {"max_attack": int(hero_data.get(attack_col, 0)), "name": hero_data.get('Name', 'N/A')}
 
 def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, hero_id: str, rules: dict, is_modifier: bool = False) -> (any, str):
-    """Finds a placeholder's value, using exception rules first, then auto-detection."""
     p_holder_upper = p_holder.upper()
     
     rule = rules.get("hero_rules", {}).get("specific", {}).get(hero_id, {}).get(p_holder_upper)
@@ -271,7 +270,6 @@ def parse_direct_effect(special_data, hero_stats, lang_db, game_db, hero_id: str
     return {"lang_id": lang_id, "params": json.dumps(params), **desc}
 
 def parse_properties(properties_list: list, special_data: dict, hero_stats: dict, lang_db: dict, game_db: dict, hero_id: str, rules: dict, parsers: dict) -> list:
-    """Parses the properties list of a special skill, with recursive calls."""
     if not properties_list: return []
     parsed_items = []
     max_level = special_data.get("maxLevel", 1)
@@ -300,7 +298,10 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         search_context = {**special_data, **prop_data}
         for p_holder in all_placeholders:
             if p_holder in lang_params: continue
-            value, _ = find_and_calculate_value(p_holder, search_context, max_level, hero_id, rules, is_modifier_effect)
+            value, _ = find_and_calculate_value(
+                p_holder, search_context, max_level, hero_id, rules, 
+                is_modifier=is_modifier_effect
+            )
             if value is not None: lang_params[p_holder] = value
         
         if 'MAX' in all_placeholders and 'FIXEDPOWER' in lang_params: lang_params['MAX'] = lang_params['FIXEDPOWER'] * 2
@@ -341,7 +342,6 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
     return parsed_items
 
 def parse_status_effects(status_effects_list: list, special_data: dict, hero_stats: dict, lang_db: dict, game_db: dict, hero_id: str, rules: dict, parsers: dict) -> list:
-    """Parses the statusEffects list of a special skill, with recursive calls."""
     if not status_effects_list: return []
     parsed_items = []
     max_level = special_data.get("maxLevel", 1)
@@ -361,36 +361,18 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         lang_params, is_modifier_effect = {}, 'modifier' in combined_details.get('statusEffect', '').lower()
         if (turns := combined_details.get("turns", 0)) > 0: lang_params["TURNS"] = turns
         
+        search_context = {**special_data, **combined_details}
         template_text_en = lang_db.get(lang_id, {}).get("en", "")
         placeholders = set(re.findall(r'\{(\w+)\}', template_text_en))
         
         for p_holder in placeholders:
             if p_holder in lang_params: continue
-
-            # --- NEW: CONTEXT-AWARE PARSING LOGIC ---
-            search_context = combined_details # Default search scope
-            p_holder_to_find = p_holder      # Default placeholder name
-
-            # Check for structured placeholders like "STATUSEFFECT1INSANITYTOADD"
-            match = re.match(r'^(STATUSEFFECT|REMOVALEFFECT)(\d+)(\w+)$', p_holder, re.IGNORECASE)
-            if match:
-                list_type_hint, index_str, prop_name_hint = match.groups()
-                index = int(index_str) - 1
-
-                # Find the correct nested list (e.g., statusEffectsToAdd)
-                target_list_key = 'statusEffectsToAdd' if 'statuseffect' in list_type_hint.lower() else 'removalEffects'
-                
-                if target_list_key in combined_details and 0 <= index < len(combined_details[target_list_key]):
-                    # If found, narrow down the search scope to ONLY the nested block.
-                    search_context = combined_details[target_list_key][index]
-                    # And simplify the placeholder name for the finder function.
-                    p_holder_to_find = prop_name_hint
-            
-            value, found_key = find_and_calculate_value(p_holder_to_find, search_context, max_level, hero_id, rules, is_modifier_effect)
-            # --- END OF NEW LOGIC ---
+            value, found_key = find_and_calculate_value(
+                p_holder, search_context, max_level, hero_id, rules,
+                is_modifier=is_modifier_effect
+            )
             
             if value is not None:
-                # Use the original placeholder name for storing the result
                 if p_holder.upper() == "DAMAGE" and "permil" in (found_key or "").lower():
                     turns_for_calc = combined_details.get("turns", 0)
                     is_total = "over {TURNS} turns" in template_text_en
@@ -414,7 +396,6 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
     return parsed_items
 
 def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, lang_db: dict, game_db: dict, hero_id: str, rules: dict, parsers: dict) -> list:
-    """Parses the summonedFamiliars list of a special skill."""
     if not familiars_list: return []
     parsed_items = []
     max_level = special_data.get("maxLevel", 1)
@@ -430,7 +411,10 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
         placeholders = set(re.findall(r'\{(\w+)\}', template_text))
 
         for p_holder in placeholders:
-            value, _ = find_and_calculate_value(p_holder, familiar_instance, max_level, hero_id, rules)
+            value, _ = find_and_calculate_value(
+                p_holder, familiar_instance, max_level, hero_id, rules,
+                is_modifier=False
+            )
             if value is not None: lang_params[p_holder] = value
         
         formatted_params = {k: format_value(v) for k, v in lang_params.items()}
@@ -438,7 +422,7 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
         main_desc['en'], main_desc['ja'] = main_desc['en'].replace('[*]', '\n・').strip(), main_desc['ja'].replace('[*]', '\n・').strip()
         
         nested_effects = []
-        if 'effects' in familiar_instance: pass # Placeholder for future familiar effect parser
+        if 'effects' in familiar_instance: pass
 
         parsed_items.append({
             "id": familiar_id, "lang_id": lang_id, "description_en": main_desc['en'],
