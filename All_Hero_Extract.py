@@ -246,73 +246,120 @@ def format_value(value):
     if isinstance(value, float): return f"{value:.1f}"
     return value
 
-def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, is_modifier: bool = False) -> (any, str):
+def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, is_modifier: bool = False, num_placeholders: int = 1) -> (any, str):
+    """
+    Finds and calculates a value by first finding the base key, then applying calculations.
+    """
+    # --- Step 1: Manual override ---
     p_holder_upper = p_holder.upper()
     if p_holder_upper in EXCEPTION_RULES:
         rule = EXCEPTION_RULES[p_holder_upper]
         calc_method = rule["calc"]
 
-        if calc_method == "fixed": return rule["value"], "Fixed Rule"
+        if calc_method == "fixed":
+            return rule["value"], "Fixed Rule"
+
         key_to_find = rule["key"]
         flat_data = flatten_json(data_block)
         
-        if key_to_find in flat_data:
-            value = flat_data[key_to_find]
-            if calc_method == 'direct': return int(value), key_to_find
-        return None, f"Exception rule key '{key_to_find}' not found"
-
-    if not isinstance(data_block, dict): return None, None
-    flat_data = flatten_json(data_block)
-    
-    normalized_pholder = p_holder.lower()
-    is_chance_related = 'chance' in normalized_pholder
-    
-    ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', p_holder)]
-    if not ph_keywords: ph_keywords = [normalized_pholder]
-
-    ph_base_name, ph_index = normalized_pholder, None
-    match = re.match(r'(\w+)(\d+)$', normalized_pholder)
-    if match:
-        base, index_str = match.groups()
-        ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', base.capitalize())]
-        if not ph_keywords: ph_keywords = [base]
-        ph_index = int(index_str) - 1
+        # --- FIX: Smarter key search for exception rules ---
+        # Find all keys that end with the specified key, ensuring uniqueness.
+        # This allows simple keys in config.json (e.g., "insanityToAdd") to match
+        # fully pathed keys (e.g., "statusEffects_1_insanityToAdd").
+        matching_keys = [k for k in flat_data if k == key_to_find or k.endswith('_' + key_to_find)]
         
-    candidate_keys = []
-    for key in flat_data:
-        key_lower = key.lower()
-        if not is_chance_related and 'chance' in key_lower: continue
-        if is_chance_related and 'chance' not in key_lower: continue
-        search_key = key_lower.replace('generation', 'regen').replace('value', 'power')
-        if any(part in search_key for part in ph_keywords):
-            if ph_index is not None:
-                if f"_{ph_index}_" in key_lower or key_lower.endswith(f"_{ph_index}"):
-                    candidate_keys.append(key)
-            else:
-                candidate_keys.append(key)
-    
-    if not candidate_keys: return None, None
-    
-    priority_keywords = ['power', 'modifier', 'fixed', 'multiplier', 'permil']
-    priority_keys = [k for k in candidate_keys if any(kw in k.lower() for kw in priority_keywords)]
-    found_key = min(priority_keys, key=len) if priority_keys else min(candidate_keys, key=len)
+        found_key = None
+        if len(matching_keys) == 1:
+            found_key = matching_keys[0]
+        elif len(matching_keys) > 1:
+            # If multiple matches are found, it's ambiguous. The user must provide a more specific key in the config.
+            print(f"\nWarning: Ambiguous exception rule for '{p_holder}'. Key '{key_to_find}' matched multiple items: {matching_keys}")
+            return None, f"Ambiguous rule key '{key_to_find}'"
 
+        if found_key:
+            base_val = flat_data[found_key]
+            # --- This was the critical bug in the previous attempt ---
+            # Now, the calculation logic is moved to the common section at the end.
+        else:
+            return None, f"Exception rule key '{key_to_find}' not found in data block."
+        
+        # We found the key via exception, now jump to the calculation phase
+        rule_type = "Exception Rule"
+        # --- End of FIX ---
+
+    else: # If not in exception rules, proceed with automatic detection
+        if not isinstance(data_block, dict): return None, None
+        flat_data = flatten_json(data_block)
+        found_key = None
+        rule_type = None
+
+        # 2. Direct key match (case-insensitive)
+        p_holder_lower = p_holder.lower()
+        for key in flat_data:
+            if key.lower() == p_holder_lower:
+                if isinstance(flat_data[key], (int, float)):
+                    found_key = key
+                    rule_type = "Direct Match"
+                    break
+        
+        # 3. Single numeric rule
+        if not found_key and num_placeholders == 1:
+            numeric_items = {k: v for k, v in flat_data.items() if isinstance(v, (int, float))}
+            if len(numeric_items) == 1:
+                found_key = list(numeric_items.keys())[0]
+                rule_type = "Single Numeric"
+
+        # 4. Keyword matching
+        if not found_key:
+            # ... (The entire keyword matching block from the previous version goes here, unchanged) ...
+            is_chance_related = 'chance' in p_holder_lower
+            if p_holder.isupper(): ph_keywords = [p_holder_lower]
+            else: ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', p_holder)]
+            if not ph_keywords: ph_keywords = [p_holder_lower]
+            ph_index = None
+            match = re.match(r'(\w+)(\d+)$', p_holder_lower)
+            if match:
+                base, index_str = match.groups()
+                if base.isupper(): ph_keywords = [base.lower()]
+                else: ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', base.capitalize())]
+                if not ph_keywords: ph_keywords = [base]
+                ph_index = int(index_str) - 1
+            candidate_keys = []
+            for key in flat_data:
+                key_lower = key.lower()
+                if not is_chance_related and 'chance' in key_lower: continue
+                if is_chance_related and 'chance' not in key_lower: continue
+                search_key = key_lower.replace('generation', 'regen').replace('value', 'power')
+                if any(part in search_key for part in ph_keywords):
+                    if ph_index is not None:
+                        if f"_{ph_index}_" in key_lower or key_lower.endswith(f"_{ph_index}"): candidate_keys.append(key)
+                    else: candidate_keys.append(key)
+            if candidate_keys:
+                priority_keywords = ['power', 'modifier', 'fixed', 'multiplier', 'permil']
+                priority_keys = [k for k in candidate_keys if any(kw in k.lower() for kw in priority_keywords)]
+                found_key = min(priority_keys, key=len) if priority_keys else min(candidate_keys, key=len)
+                rule_type = "Keyword Match"
+
+    # --- Phase 2: Calculate the Value (Common to all successful finding methods) ---
+    if not found_key: return None, None
+    
     base_val = flat_data.get(found_key, 0)
+    if not isinstance(base_val, (int, float)): return None, f"Found key '{found_key}' but value is not numeric."
+
+    # This calculation logic is now unified.
     inc_key_pattern = found_key.lower().replace("permil", "incrementperlevelpermil").replace('fixedpower', 'fixedpowerincrementperlevel')
     inc_key = next((k for k in flat_data if k.lower() == inc_key_pattern), None)
     inc_val = flat_data.get(inc_key, 0)
-
-    if not isinstance(base_val, (int, float)): return None, None
     
     if is_modifier:
         calculated_val = ((base_val - 1000) + (inc_val * (max_level - 1))) / 10
-        return calculated_val, found_key
+        return calculated_val, f"{rule_type}: {found_key}"
     else:
         calculated_val = base_val + inc_val * (max_level - 1)
         if 'permil' in found_key.lower():
-            return calculated_val / 10, found_key
+            return calculated_val / 10, f"{rule_type}: {found_key}"
         else:
-            return int(calculated_val), found_key
+            return int(calculated_val), f"{rule_type}: {found_key}"
 
 def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dict = None) -> str:
     if 'statusEffect' in data_block:
