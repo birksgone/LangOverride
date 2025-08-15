@@ -8,6 +8,10 @@
       "key": "fixed_value",
       "value": 10,
       "calc": "fixed"
+    },
+     "INSANITYTOADD": {
+      "key": "insanityToAdd",
+      "calc": "direct"
     }
   },
   "ADDITIONAL_SKILLS": {
