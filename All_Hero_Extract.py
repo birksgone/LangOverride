@@ -548,37 +548,56 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
 def write_results_to_csv(processed_data: list, output_path: Path):
     print(f"\n--- Writing results to {output_path} ---")
     if not processed_data: return
-    flat_data = []
+    
+    all_rows = []
+    
     for hero in processed_data:
         row = {'hero_id': hero.get('id'), 'hero_name': hero.get('name', 'N/A')}
         skills = hero.get('skillDescriptions', {})
-        if de := skills.get('directEffect'): row.update({f'de_{k}': v for k, v in de.items()})
-        
-        # --- MODIFIED: Handle nested_effects during flattening ---
+
+        # --- Step 1: Add all standard columns first, maintaining original order ---
+        if de := skills.get('directEffect'):
+            row.update({f'de_{k}': v for k, v in de.items()})
+
         props = skills.get('properties', [])
         for i, p in enumerate(props[:3]):
             row.update({f'prop_{i+1}_{k}': v for k, v in p.items() if k != 'nested_effects'})
-            if nested := p.get('nested_effects'):
-                for j, ne in enumerate(nested[:2]):
-                     row.update({f'prop_{i+1}_nested_{j+1}_{k}': v for k, v in ne.items() if k != 'nested_effects'})
 
         effects = skills.get('statusEffects', [])
         for i, e in enumerate(effects[:5]):
             row.update({f'se_{i+1}_{k}': v for k, v in e.items() if k != 'nested_effects'})
-            if nested := e.get('nested_effects'):
-                for j, ne in enumerate(nested[:2]):
-                     row.update({f'se_{i+1}_nested_{j+1}_{k}': v for k, v in ne.items() if k != 'nested_effects'})
-        
+
         familiars = skills.get('familiars', [])
         for i, f in enumerate(familiars[:2]):
             row.update({f'fam_{i+1}_{k}': v for k, v in f.items() if k != 'nested_effects'})
 
-        flat_data.append(row)
+        # --- Step 2: Append nested_effects columns at the very end ---
+        # This ensures the original structure is not disturbed.
+        nested_prop_effects = [p.get('nested_effects', []) for p in props[:3]]
+        for i, nested_list in enumerate(nested_prop_effects):
+            if not nested_list: continue
+            for j, ne in enumerate(nested_list[:2]): # Limit to 2 nested effects per property
+                row.update({f'prop_{i+1}_nested_{j+1}_{k}': v for k, v in ne.items() if k != 'nested_effects'})
+        
+        nested_se_effects = [e.get('nested_effects', []) for e in effects[:5]]
+        for i, nested_list in enumerate(nested_se_effects):
+            if not nested_list: continue
+            for j, ne in enumerate(nested_list[:2]): # Limit to 2 nested effects per status effect
+                 row.update({f'se_{i+1}_nested_{j+1}_{k}': v for k, v in ne.items() if k != 'nested_effects'})
+        
+        all_rows.append(row)
+
     try:
-        df = pd.DataFrame(flat_data)
+        # Using pandas to handle potentially different column sets between rows gracefully
+        df = pd.DataFrame(all_rows)
+        
+        # Define a potential column order to keep things tidy, but it's not strictly necessary
+        # The most important part is that new columns are added, not inserted.
+        
         df.to_csv(output_path, index=False, encoding='utf-8-sig', quoting=csv.QUOTE_ALL, lineterminator='\n')
         print(f"Successfully saved {len(df)} rows to CSV.")
-    except Exception as e: print(f"FATAL: Failed to write CSV: {e}")
+    except Exception as e:
+        print(f"FATAL: Failed to write CSV: {e}")
 
 
 def write_debug_json(debug_data: dict, output_path: Path):
