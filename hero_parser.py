@@ -361,21 +361,43 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         lang_params, is_modifier_effect = {}, 'modifier' in combined_details.get('statusEffect', '').lower()
         if (turns := combined_details.get("turns", 0)) > 0: lang_params["TURNS"] = turns
         
-        search_context = {**special_data, **combined_details}
         template_text_en = lang_db.get(lang_id, {}).get("en", "")
         placeholders = set(re.findall(r'\{(\w+)\}', template_text_en))
         
         for p_holder in placeholders:
             if p_holder in lang_params: continue
-            value, found_key = find_and_calculate_value(p_holder, search_context, max_level, hero_id, rules, is_modifier_effect)
+
+            # --- NEW: CONTEXT-AWARE PARSING LOGIC ---
+            search_context = combined_details # Default search scope
+            p_holder_to_find = p_holder      # Default placeholder name
+
+            # Check for structured placeholders like "STATUSEFFECT1INSANITYTOADD"
+            match = re.match(r'^(STATUSEFFECT|REMOVALEFFECT)(\d+)(\w+)$', p_holder, re.IGNORECASE)
+            if match:
+                list_type_hint, index_str, prop_name_hint = match.groups()
+                index = int(index_str) - 1
+
+                # Find the correct nested list (e.g., statusEffectsToAdd)
+                target_list_key = 'statusEffectsToAdd' if 'statuseffect' in list_type_hint.lower() else 'removalEffects'
+                
+                if target_list_key in combined_details and 0 <= index < len(combined_details[target_list_key]):
+                    # If found, narrow down the search scope to ONLY the nested block.
+                    search_context = combined_details[target_list_key][index]
+                    # And simplify the placeholder name for the finder function.
+                    p_holder_to_find = prop_name_hint
+            
+            value, found_key = find_and_calculate_value(p_holder_to_find, search_context, max_level, hero_id, rules, is_modifier_effect)
+            # --- END OF NEW LOGIC ---
             
             if value is not None:
+                # Use the original placeholder name for storing the result
                 if p_holder.upper() == "DAMAGE" and "permil" in (found_key or "").lower():
                     turns_for_calc = combined_details.get("turns", 0)
                     is_total = "over {TURNS} turns" in template_text_en
                     damage_per_turn = math.floor((value / 100) * hero_stats.get("max_attack", 0))
                     lang_params[p_holder] = damage_per_turn * (turns_for_calc or 1) if is_total else damage_per_turn
-                else: lang_params[p_holder] = value
+                else: 
+                    lang_params[p_holder] = value
         
         nested_effects = []
         if 'statusEffectsToAdd' in combined_details:
