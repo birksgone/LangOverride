@@ -19782,14 +19782,25 @@
               },
               "maxLevel": 8,
               "properties": [
-                "mana_reduction_secondary_effect_all_enemies_jade_more"
+                {
+                  "propertyType": "SecondaryDirectEffect",
+                  "id": "mana_reduction_secondary_effect_all_enemies_jade_more",
+                  "powerMultiplierPerMil": -250,
+                  "effectType": "AddMana",
+                  "targetType": "All",
+                  "sideAffected": "Enemies"
+                }
               ],
               "statusEffects": [
                 {
                   "id": "dodge_special_damage_more_more",
                   "sideAffected": "Allies",
                   "statusTargetType": "All",
-                  "turns": 5
+                  "turns": 5,
+                  "statusEffect": "DodgeSpecialDamage",
+                  "buff": "MinorBuff",
+                  "dodgeChancePerMil": 610,
+                  "dodgeChanceIncrementPerLevelPerMil": 20
                 }
               ]
             }
@@ -65951,14 +65962,7 @@
                   "id": "underwater_ceto",
                   "sideAffected": "Enemies",
                   "statusTargetType": "All",
-                  "turns": 4,
-                  "statusEffect": "UnderWater",
-                  "buff": "MinorDebuff",
-                  "damageMultiplierPerMil": 75,
-                  "damageMultiplierIncrementPerLevelPerMil": 5,
-                  "additionalCasterSideEffect": "Heal",
-                  "additionalCasterSideEffectPowerPerMil": 500,
-                  "additionalCasterSideEffectTargetType": "Single"
+                  "turns": 4
                 }
               ]
             }

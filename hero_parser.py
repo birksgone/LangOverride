@@ -200,7 +200,6 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, he
             return int(calculated_val), found_key
 
 def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dict = None) -> str:
-    # ... (This function is unchanged)
     if 'statusEffect' in data_block:
         buff_map = {
             "MinorDebuff": "minor", "MajorDebuff": "major",
@@ -227,35 +226,50 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dic
     primary_keyword_raw = prop_type or status_effect
     primary_keyword = primary_keyword_raw.strip() if isinstance(primary_keyword_raw, str) else None
     
-    filtered_candidates = []
-    if primary_keyword:
-        for lang_key in lang_key_subset:
-            if primary_keyword in lang_key.split('.'): filtered_candidates.append(lang_key)
-    if not filtered_candidates: filtered_candidates = lang_key_subset
-
     potential_matches = []
-    for lang_key in filtered_candidates:
-        score, lang_key_parts = 0, lang_key.lower().split('.')
-        if primary_keyword and primary_keyword in lang_key_parts: score += 100
+    
+    if primary_keyword:
+        filtered_candidates = [k for k in lang_key_subset if primary_keyword in k.split('.')]
         
-        other_keywords = {'effecttype', 'targettype', 'sideaffected', 'buff', 'statustargettype'}
-        for key_name in other_keywords:
-            if value := keywords.get(key_name):
-                if value.lower() in lang_key_parts: score += 5
+        for lang_key in filtered_candidates:
+            score, lang_key_parts = 0, lang_key.lower().split('.')
+            if primary_keyword in lang_key_parts: score += 100
+            
+            other_keywords = {'effecttype', 'targettype', 'sideaffected', 'buff', 'statustargettype'}
+            for key_name in other_keywords:
+                if value := keywords.get(key_name):
+                    if value.lower() in lang_key_parts: score += 5
 
-        if 'fixedpower' in lang_key_parts and ('fixedPower' in data_block or data_block.get('hasFixedPower')): score += 3
-        if any(isinstance(v, (int, float)) and v < 0 for v in data_block.values()) and 'decrement' in lang_key_parts: score += 2
+            if 'fixedpower' in lang_key_parts and ('fixedPower' in data_block or data_block.get('hasFixedPower')): score += 3
+            if any(isinstance(v, (int, float)) and v < 0 for v in data_block.values()) and 'decrement' in lang_key_parts: score += 2
 
-        if score > 0: potential_matches.append({'key': lang_key, 'score': score})
+            if score > 0: potential_matches.append({'key': lang_key, 'score': score})
 
-    if not potential_matches: return f"SEARCH_FAILED_FOR_{data_block.get('id', 'UNKNOWN_ID')}_TYPE_{primary_keyword}"
+    if not potential_matches and primary_keyword:
+        for lang_key in lang_key_subset:
+            score, lang_key_parts = 0, lang_key.lower().split('.')
+            other_keywords = {'targettype', 'sideaffected'}
+            matched_secondary_keywords = 0
+            for key_name in other_keywords:
+                if value := keywords.get(key_name):
+                    if value.lower() in lang_key_parts:
+                        score += 5
+                        matched_secondary_keywords += 1
+            if matched_secondary_keywords > 0:
+                potential_matches.append({'key': lang_key, 'score': score})
+
+    if not potential_matches:
+        print(f"\n  - Warning: Could not find lang_id for skill '{data_block.get('id', 'UNKNOWN')}' (type: {primary_keyword})")
+        return None
+
     potential_matches.sort(key=lambda x: (-x['score'], len(x['key'])))
     return potential_matches[0]['key']
 
 def parse_direct_effect(special_data, hero_stats, lang_db, game_db, hero_id: str, rules: dict, parsers: dict):
-    # ... (This function is unchanged)
     effect_data = special_data.get("directEffect")
-    if not effect_data or not effect_data.get("effectType"): return None
+    if not effect_data or not effect_data.get("effectType"):
+        return {"id": "direct_effect_no_type", "lang_id": "N/A", "params": "{}", "en": "", "ja": ""}
+    
     try:
         effect_type_str = effect_data.get('effectType', '')
         parts = ["specials.v2.directeffect", effect_type_str.lower()]
@@ -263,8 +277,9 @@ def parse_direct_effect(special_data, hero_stats, lang_db, game_db, hero_id: str
         if s := effect_data.get('sideAffected'): parts.append(s.lower())
         lang_id = ".".join(parts)
         if effect_data.get("hasFixedPower"): lang_id += ".fixedpower"
-    except AttributeError: return None
-    
+    except AttributeError:
+        return {"id": "direct_effect_error", "lang_id": "N/A", "params": "{}", "en": "Error parsing", "ja": "解析エラー"}
+
     params = {}
     base, inc, lvl = effect_data.get('powerMultiplierPerMil', 0), effect_data.get('powerMultiplierIncrementPerLevelPerMil', 0), special_data.get('maxLevel', 1)
     
@@ -280,7 +295,6 @@ def parse_direct_effect(special_data, hero_stats, lang_db, game_db, hero_id: str
     return {"lang_id": lang_id, "params": json.dumps(params), **desc}
 
 def parse_properties(properties_list: list, special_data: dict, hero_stats: dict, lang_db: dict, game_db: dict, hero_id: str, rules: dict, parsers: dict) -> list:
-    # ... (This function is unchanged)
     if not properties_list: return []
     parsed_items = []
     max_level = special_data.get("maxLevel", 1)
@@ -299,6 +313,15 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         lang_id = rules.get("lang_overrides", {}).get("specific", {}).get(hero_id, {}).get(prop_id)
         if not lang_id: lang_id = rules.get("lang_overrides", {}).get("common", {}).get(prop_id)
         if not lang_id: lang_id = find_best_lang_id(prop_data, prop_lang_subset, parent_block=special_data)
+
+        if not lang_id:
+            parsed_items.append({
+                "id": prop_id, "lang_id": "SEARCH_FAILED", 
+                "description_en": f"Failed to find template for {prop_id}", "description_ja": f"テンプレート検索失敗: {prop_id}",
+                "tooltip_en": "", "tooltip_ja": "",
+                "params": "{}", "nested_effects": []
+            })
+            continue
 
         lang_params, is_modifier_effect = {}, 'modifier' in prop_data.get('propertyType', '').lower()
         main_template_text = lang_db.get(lang_id, {}).get("en", "")
@@ -369,6 +392,14 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         lang_id = rules.get("lang_overrides", {}).get("specific", {}).get(hero_id, {}).get(effect_id)
         if not lang_id: lang_id = rules.get("lang_overrides", {}).get("common", {}).get(effect_id)
         if not lang_id: lang_id = find_best_lang_id(combined_details, se_lang_subset, parent_block=special_data)
+
+        if not lang_id:
+            parsed_items.append({
+                "id": effect_id, "lang_id": "SEARCH_FAILED",
+                "en": f"Failed to find template for {effect_id}", "ja": f"テンプレート検索失敗: {effect_id}",
+                "params": "{}", "nested_effects": []
+            })
+            continue
 
         lang_params, is_modifier_effect = {}, 'modifier' in combined_details.get('statusEffect', '').lower()
         if (turns := combined_details.get("turns", 0)) > 0: lang_params["TURNS"] = turns
