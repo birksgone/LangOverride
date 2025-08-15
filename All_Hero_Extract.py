@@ -246,16 +246,23 @@ def format_value(value):
     if isinstance(value, float): return f"{value:.1f}"
     return value
 
-def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, is_modifier: bool = False) -> (any, str):
+def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, is_modifier: bool = False, num_placeholders: int = 1) -> (any, str):
+    """
+    Finds and calculates a value using a hierarchical approach.
+    1. Checks for a manual override in EXCEPTION_RULES.
+    2. Checks for a direct key match (case-insensitive).
+    3. If there's only one placeholder and one numeric value, uses that.
+    4. Falls back to keyword-matching logic.
+    """
+    # --- Step 1: Manual override ---
     p_holder_upper = p_holder.upper()
     if p_holder_upper in EXCEPTION_RULES:
+        # ... (no changes to this part) ...
         rule = EXCEPTION_RULES[p_holder_upper]
         calc_method = rule["calc"]
-
         if calc_method == "fixed": return rule["value"], "Fixed Rule"
         key_to_find = rule["key"]
         flat_data = flatten_json(data_block)
-        
         if key_to_find in flat_data:
             value = flat_data[key_to_find]
             if calc_method == 'direct': return int(value), key_to_find
@@ -263,22 +270,48 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, is
 
     if not isinstance(data_block, dict): return None, None
     flat_data = flatten_json(data_block)
-    
-    normalized_pholder = p_holder.lower()
-    is_chance_related = 'chance' in normalized_pholder
-    
-    ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', p_holder)]
-    if not ph_keywords: ph_keywords = [normalized_pholder]
 
-    ph_base_name, ph_index = normalized_pholder, None
-    match = re.match(r'(\w+)(\d+)$', normalized_pholder)
+    # --- Step 2: Direct key match (case-insensitive) ---
+    p_holder_lower = p_holder.lower()
+    for key in flat_data:
+        if key.lower() == p_holder_lower:
+            value = flat_data[key]
+            if isinstance(value, (int, float)):
+                # Found a direct match, proceed with calculation
+                # Note: No increment logic for direct matches for now, assuming they are final values.
+                if 'permil' in key.lower(): return value / 10, key
+                return value, key
+
+    # --- Step 3: Single numeric rule ---
+    if num_placeholders == 1:
+        numeric_values = [v for v in flat_data.values() if isinstance(v, (int, float))]
+        if len(numeric_values) == 1:
+            # Note: This is a strong assumption, might need refinement.
+            # For now, it's a good heuristic.
+            return numeric_values[0], "Single Numeric Rule"
+
+    # --- Step 4: Fallback to keyword matching ---
+    is_chance_related = 'chance' in p_holder_lower
+    
+    # FIX: Handle all-caps placeholders correctly
+    if p_holder.isupper():
+        ph_keywords = [p_holder_lower]
+    else:
+        ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', p_holder)]
+    
+    if not ph_keywords: ph_keywords = [p_holder_lower]
+    # ... (rest of the keyword matching logic is the same as before) ...
+    ph_index = None
+    match = re.match(r'(\w+)(\d+)$', p_holder_lower)
     if match:
         base, index_str = match.groups()
-        ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', base.capitalize())]
+        if base.isupper(): ph_keywords = [base.lower()]
+        else: ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', base.capitalize())]
         if not ph_keywords: ph_keywords = [base]
         ph_index = int(index_str) - 1
         
     candidate_keys = []
+    # ... (rest of the logic unchanged)
     for key in flat_data:
         key_lower = key.lower()
         if not is_chance_related and 'chance' in key_lower: continue
@@ -454,11 +487,13 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         extra_lang_id = '.'.join(lang_id.split('.')[:4]) + ".extra"
         extra_template_text = lang_db.get(extra_lang_id, {}).get("en", "")
         all_placeholders = set(re.findall(r'\{(\w+)\}', main_template_text + extra_template_text))
+        num_placeholders = len(all_placeholders) 
         
         search_context = {**special_data, **prop_data}
         for p_holder in all_placeholders:
             if p_holder in lang_params: continue
-            value, _ = find_and_calculate_value(p_holder, search_context, max_level, is_modifier_effect)
+            # Pass the new argument
+            value, _ = find_and_calculate_value(p_holder, search_context, max_level, is_modifier_effect, num_placeholders=num_placeholders)
             if value is not None: lang_params[p_holder] = value
         
         if 'MAX' in all_placeholders and 'FIXEDPOWER' in lang_params: lang_params['MAX'] = lang_params['FIXEDPOWER'] * 2
@@ -508,37 +543,39 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         effect_id = effect_instance.get("id")
         if not effect_id: continue
 
-        # --- FIX: Explicitly fetch the base effect data from game_db to ensure completeness ---
-        # This guarantees that base values like 'damageMultiplierPerMil' are always present.
         effect_details = game_db['status_effects'].get(effect_id, {})
-
-        # The instance (from the parent) provides context like 'turns'.
-        # The details (from the DB) provide the core skill data.
         combined_details = {**effect_details, **effect_instance}
         
-        # Now, use the complete combined_details for all subsequent operations.
         lang_id = find_best_lang_id(combined_details, se_lang_subset, parent_block=special_data)
 
         lang_params = {}
-        # Use combined_details to get the most accurate 'turns' value
         if (turns := combined_details.get("turns", 0)) > 0: 
             lang_params["TURNS"] = turns
         
         is_modifier_effect = 'modifier' in combined_details.get('statusEffect', '').lower()
         
-        # The search scope includes the parent special data and the effect's own complete data
-        search_context = {**special_data, **combined_details}
-
         template_text_en = lang_db.get(lang_id, {}).get("en", "")
         placeholders = set(re.findall(r'\{(\w+)\}', template_text_en))
         
+        # --- ADD THIS LINE ---
+        num_placeholders = len(placeholders)
+
         for p_holder in placeholders:
             if p_holder in lang_params: continue
-            value, found_key = find_and_calculate_value(p_holder, search_context, max_level, is_modifier_effect)
+            
+            # This is where we need to pass the new argument
+            search_context = {**special_data, **combined_details}
+            value, found_key = find_and_calculate_value(
+                p_holder, 
+                search_context, 
+                max_level, 
+                is_modifier_effect, 
+                num_placeholders=num_placeholders  # <-- PASS THE NEW ARGUMENT HERE
+            )
             
             if value is not None:
                 if p_holder.upper() == "DAMAGE" and "permil" in (found_key or "").lower():
-                    turns_for_calc = combined_details.get("turns", 0) # Ensure we use the correct turn count
+                    turns_for_calc = combined_details.get("turns", 0)
                     is_total = "over {TURNS} turns" in template_text_en
                     damage_per_turn = math.floor((value / 100) * hero_stats.get("max_attack", 0))
                     lang_params[p_holder] = damage_per_turn * (turns_for_calc or 1) if is_total else damage_per_turn
@@ -546,7 +583,6 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
                     lang_params[p_holder] = value
         
         nested_effects = []
-        # Use combined_details to check for nested effects
         if 'statusEffectsToAdd' in combined_details:
              nested_effects.extend(parsers['status_effects'](combined_details['statusEffectsToAdd'], special_data, hero_stats, lang_db, game_db, parsers))
 
