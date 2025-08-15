@@ -65951,7 +65951,14 @@
                   "id": "underwater_ceto",
                   "sideAffected": "Enemies",
                   "statusTargetType": "All",
-                  "turns": 4
+                  "turns": 4,
+                  "statusEffect": "UnderWater",
+                  "buff": "MinorDebuff",
+                  "damageMultiplierPerMil": 75,
+                  "damageMultiplierIncrementPerLevelPerMil": 5,
+                  "additionalCasterSideEffect": "Heal",
+                  "additionalCasterSideEffectPowerPerMil": 500,
+                  "additionalCasterSideEffectTargetType": "Single"
                 }
               ]
             }
@@ -81572,27 +81579,7 @@
                   "id": "aqualith_costume_build_up_damage2",
                   "sideAffected": "Allies",
                   "statusTargetType": "Single",
-                  "turns": 3,
-                  "statusEffect": "BuildUpDamageOnRemoval",
-                  "buff": "MinorBuff",
-                  "removalEffects": [
-                    {
-                      "effectType": "Damage",
-                      "effectTargetType": "All",
-                      "sideAffected": "Enemies",
-                      "effectTriggerRemovalReasons": [
-                        "Expiration"
-                      ],
-                      "excludeEffectTriggerRemovalReasons": [],
-                      "powerMultiplierPerMil": 210,
-                      "powerMultiplierIncrementPerLevelPerMil": 5
-                    }
-                  ],
-                  "maxAdditionalFixedDamage": 0,
-                  "maxAdditionalFixedDamageIncrementPerLevel": 0,
-                  "maxAdditionalPowerMultiplierPerMil": 300,
-                  "maxAdditionalPowerMultiplierPerMilIncrementPerLevel": 5,
-                  "maxRelativeDamageTakenPerMil": 500
+                  "turns": 3
                 }
               ]
             }

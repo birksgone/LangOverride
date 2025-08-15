@@ -1,6 +1,3 @@
-# hero_parser.py
-# This module contains all the logic for parsing and interpreting hero skill data.
-
 import json
 import re
 import math
@@ -120,7 +117,15 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, he
     if rule:
         calc_method = rule.get("calc")
         if calc_method == "fixed":
-            return rule.get("value"), "Fixed Rule"
+            # Ensure fixed values from CSV are treated as numbers if possible
+            value_str = rule.get("value")
+            try:
+                return int(value_str)
+            except (ValueError, TypeError):
+                try:
+                    return float(value_str)
+                except (ValueError, TypeError):
+                    return value_str, "Fixed Rule" # Fallback to string if not a number
 
         key_to_find = rule.get("key")
         if key_to_find:
@@ -131,6 +136,7 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, he
                 found_key = matching_keys[0]
                 value = flat_data[found_key]
                 if isinstance(value, (int, float)):
+                    # Exception rules currently do not support increment calculations, they return the direct value.
                     if 'permil' in found_key.lower():
                         return value / 10, f"Exception Rule: {found_key}"
                     return int(value), f"Exception Rule: {found_key}"
@@ -139,45 +145,49 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, he
     if not isinstance(data_block, dict): return None, None
     flat_data = flatten_json(data_block)
     
-    normalized_pholder = p_holder.lower()
-    is_chance_related = 'chance' in normalized_pholder
-    
+    p_holder_lower = p_holder.lower()
     ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', p_holder)]
-    if not ph_keywords: ph_keywords = [normalized_pholder]
+    if not ph_keywords: ph_keywords = [p_holder.lower()]
 
-    ph_base_name, ph_index = normalized_pholder, None
-    match = re.match(r'(\w+)(\d+)$', normalized_pholder)
-    if match:
-        base, index_str = match.groups()
-        ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', base.capitalize())]
-        if not ph_keywords: ph_keywords = [base]
-        ph_index = int(index_str) - 1
-        
-    candidate_keys = []
-    for key in flat_data:
+    candidates = []
+    for key, value in flat_data.items():
+        if not isinstance(value, (int, float)):
+            continue
         key_lower = key.lower()
-        if not is_chance_related and 'chance' in key_lower: continue
-        if is_chance_related and 'chance' not in key_lower: continue
-        search_key = key_lower.replace('generation', 'regen').replace('value', 'power')
-        if any(part in search_key for part in ph_keywords):
-            if ph_index is not None:
-                if f"_{ph_index}_" in key_lower or key_lower.endswith(f"_{ph_index}"):
-                    candidate_keys.append(key)
-            else:
-                candidate_keys.append(key)
-    
-    if not candidate_keys: return None, None
-    
-    priority_keywords = ['power', 'modifier', 'fixed', 'multiplier', 'permil']
-    priority_keys = [k for k in candidate_keys if any(kw in k.lower() for kw in priority_keywords)]
-    found_key = min(priority_keys, key=len) if priority_keys else min(candidate_keys, key=len)
+        score = 0
+        matched_keywords = sum(1 for kw in ph_keywords if kw in key_lower)
+        if matched_keywords > 0:
+            score += matched_keywords * 10
+            if 'power' in key_lower or 'modifier' in key_lower:
+                score += 5
+            if 'permil' in key_lower:
+                score += 3
+            candidates.append({'key': key, 'score': score})
+            
+    if not candidates:
+        return None, None
+        
+    best_candidate = sorted(candidates, key=lambda x: (-x['score'], len(x['key'])))[0]
+    found_key = best_candidate['key']
 
     base_val = flat_data.get(found_key, 0)
-    inc_key_pattern = found_key.lower().replace("permil", "incrementperlevelpermil").replace('fixedpower', 'fixedpowerincrementperlevel')
-    inc_key = next((k for k in flat_data if k.lower() == inc_key_pattern), None)
+    
+    base_key_name = found_key.split('_')[-1]
+    inc_key_name_pattern_1 = base_key_name.replace("permil", "incrementperlevelpermil").replace('power', 'incrementperlevel')
+    inc_key_name_pattern_2 = base_key_name + "incrementperlevel"
+    
+    inc_key = None
+    for k in flat_data:
+        k_lower = k.lower()
+        if k_lower.endswith(inc_key_name_pattern_1) or k_lower.endswith(inc_key_name_pattern_2):
+            inc_key = k
+            break
+            
     inc_val = flat_data.get(inc_key, 0)
-
-    if not isinstance(base_val, (int, float)): return None, None
+    
+    # --- FIX: Ensure inc_val is a number before calculation ---
+    if not isinstance(inc_val, (int, float)):
+        inc_val = 0
     
     if is_modifier:
         calculated_val = ((base_val - 1000) + (inc_val * (max_level - 1))) / 10
@@ -190,7 +200,7 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, he
             return int(calculated_val), found_key
 
 def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dict = None) -> str:
-    """Finds the best language ID for a skill block using a scoring system."""
+    # ... (This function is unchanged)
     if 'statusEffect' in data_block:
         buff_map = {
             "MinorDebuff": "minor", "MajorDebuff": "major",
@@ -243,7 +253,7 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dic
     return potential_matches[0]['key']
 
 def parse_direct_effect(special_data, hero_stats, lang_db, game_db, hero_id: str, rules: dict, parsers: dict):
-    """Parses the directEffect block of a special skill."""
+    # ... (This function is unchanged)
     effect_data = special_data.get("directEffect")
     if not effect_data or not effect_data.get("effectType"): return None
     try:
@@ -270,6 +280,7 @@ def parse_direct_effect(special_data, hero_stats, lang_db, game_db, hero_id: str
     return {"lang_id": lang_id, "params": json.dumps(params), **desc}
 
 def parse_properties(properties_list: list, special_data: dict, hero_stats: dict, lang_db: dict, game_db: dict, hero_id: str, rules: dict, parsers: dict) -> list:
+    # ... (This function is unchanged)
     if not properties_list: return []
     parsed_items = []
     max_level = special_data.get("maxLevel", 1)
@@ -295,7 +306,8 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         extra_template_text = lang_db.get(extra_lang_id, {}).get("en", "")
         all_placeholders = set(re.findall(r'\{(\w+)\}', main_template_text + extra_template_text))
 
-        search_context = {**special_data, **prop_data}
+        search_context = {**prop_data, "maxLevel": max_level}
+
         for p_holder in all_placeholders:
             if p_holder in lang_params: continue
             value, _ = find_and_calculate_value(
@@ -361,7 +373,8 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         lang_params, is_modifier_effect = {}, 'modifier' in combined_details.get('statusEffect', '').lower()
         if (turns := combined_details.get("turns", 0)) > 0: lang_params["TURNS"] = turns
         
-        search_context = {**special_data, **combined_details}
+        search_context = {**combined_details, "maxLevel": max_level}
+        
         template_text_en = lang_db.get(lang_id, {}).get("en", "")
         placeholders = set(re.findall(r'\{(\w+)\}', template_text_en))
         
@@ -396,6 +409,7 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
     return parsed_items
 
 def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, lang_db: dict, game_db: dict, hero_id: str, rules: dict, parsers: dict) -> list:
+    # ... (This function is unchanged)
     if not familiars_list: return []
     parsed_items = []
     max_level = special_data.get("maxLevel", 1)
