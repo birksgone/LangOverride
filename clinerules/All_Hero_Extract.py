@@ -351,12 +351,13 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dic
     
     if parent_block and isinstance(parent_block, dict):
         context_keys = ['targettype', 'sideaffected']
+        # We don't need to flatten here, just check the top level of the parent
         for key in context_keys:
             if key in parent_block and isinstance(parent_block[key], str):
+                # Add parent context, but don't override child's specific context
                 if key not in keywords:
                     keywords[key] = parent_block[key].lower()
 
-    # --- MODIFIED: Give 'statuseffect' the same top priority as 'propertytype' ---
     primary_keyword = keywords.get('propertytype') or keywords.get('statuseffect')
     
     potential_matches = []
@@ -487,26 +488,8 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
              if p not in formatted_params:
                  formatted_params[p] = f"{{{p}}}"
 
-        # If there are nested effects and the placeholder exists, format them.
-        if "STATUSEFFECTS" in all_placeholders and nested_effects:
-            # Create bulleted lists for each language from the nested effect descriptions
-            status_effects_en = "\n".join([f"• {ne.get('en', '')}" for ne in nested_effects])
-            status_effects_ja = "\n".join([f"• {ne.get('ja', '')}" for ne in nested_effects])
-            # Add these to the parameters that will be used for replacement
-            # Note: This is a special case; other params are single values, these are language-specific.
-            formatted_params["STATUSEFFECTS_EN"] = status_effects_en
-            formatted_params["STATUSEFFECTS_JA"] = status_effects_ja
-
         main_desc = generate_description(lang_id, formatted_params, lang_db)
         tooltip_desc = generate_description(extra_lang_id, formatted_params, lang_db) if extra_lang_id in lang_db else {"en": "", "ja": ""}
-
-        # Manual replacement for language-specific placeholders like STATUSEFFECTS
-        if "STATUSEFFECTS_EN" in formatted_params:
-            main_desc['en'] = main_desc['en'].replace("{STATUSEFFECTS}", formatted_params["STATUSEFFECTS_EN"])
-            main_desc['ja'] = main_desc['ja'].replace("{STATUSEFFECTS}", formatted_params["STATUSEFFECTS_JA"])
-            tooltip_desc['en'] = tooltip_desc['en'].replace("{STATUSEFFECTS}", formatted_params["STATUSEFFECTS_EN"])
-            tooltip_desc['ja'] = tooltip_desc['ja'].replace("{STATUSEFFECTS}", formatted_params["STATUSEFFECTS_JA"])
-
 
         main_desc['en'] = re.sub(r'\n\s*\n', '\n', main_desc['en']).strip()
         main_desc['ja'] = re.sub(r'\n\s*\n', '\n', main_desc['ja']).strip()
