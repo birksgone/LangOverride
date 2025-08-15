@@ -470,14 +470,30 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
     se_lang_subset = parsers['se_lang_subset']
     
     for effect_instance in status_effects_list:
-        if not (effect_id := effect_instance.get("id")): continue
-        lang_id = find_best_lang_id(effect_instance, se_lang_subset, parent_block=special_data)
+        effect_id = effect_instance.get("id")
+        if not effect_id: continue
+
+        # --- FIX: Explicitly fetch the base effect data from game_db to ensure completeness ---
+        # This guarantees that base values like 'damageMultiplierPerMil' are always present.
+        effect_details = game_db['status_effects'].get(effect_id, {})
+
+        # The instance (from the parent) provides context like 'turns'.
+        # The details (from the DB) provide the core skill data.
+        combined_details = {**effect_details, **effect_instance}
+        
+        # Now, use the complete combined_details for all subsequent operations.
+        lang_id = find_best_lang_id(combined_details, se_lang_subset, parent_block=special_data)
 
         lang_params = {}
-        if (turns := effect_instance.get("turns", 0)) > 0: lang_params["TURNS"] = turns
+        # Use combined_details to get the most accurate 'turns' value
+        if (turns := combined_details.get("turns", 0)) > 0: 
+            lang_params["TURNS"] = turns
         
-        is_modifier_effect = 'modifier' in effect_instance.get('statusEffect', '').lower()
-        search_context = {**special_data, **effect_instance}
+        is_modifier_effect = 'modifier' in combined_details.get('statusEffect', '').lower()
+        
+        # The search scope includes the parent special data and the effect's own complete data
+        search_context = {**special_data, **combined_details}
+
         template_text_en = lang_db.get(lang_id, {}).get("en", "")
         placeholders = set(re.findall(r'\{(\w+)\}', template_text_en))
         
@@ -487,15 +503,17 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
             
             if value is not None:
                 if p_holder.upper() == "DAMAGE" and "permil" in (found_key or "").lower():
+                    turns_for_calc = combined_details.get("turns", 0) # Ensure we use the correct turn count
                     is_total = "over {TURNS} turns" in template_text_en
                     damage_per_turn = math.floor((value / 100) * hero_stats.get("max_attack", 0))
-                    lang_params[p_holder] = damage_per_turn * (turns or 1) if is_total else damage_per_turn
-                else: lang_params[p_holder] = value
+                    lang_params[p_holder] = damage_per_turn * (turns_for_calc or 1) if is_total else damage_per_turn
+                else: 
+                    lang_params[p_holder] = value
         
-        # --- NEW: Recursive parsing for beowulf-like effects ---
         nested_effects = []
-        if 'statusEffectsToAdd' in effect_instance:
-            nested_effects.extend(parsers['status_effects'](effect_instance['statusEffectsToAdd'], special_data, hero_stats, lang_db, game_db, parsers))
+        # Use combined_details to check for nested effects
+        if 'statusEffectsToAdd' in combined_details:
+             nested_effects.extend(parsers['status_effects'](combined_details['statusEffectsToAdd'], special_data, hero_stats, lang_db, game_db, parsers))
 
         formatted_params = {k: format_value(v) for k, v in lang_params.items()}
         descriptions = generate_description(lang_id, formatted_params, lang_db)
