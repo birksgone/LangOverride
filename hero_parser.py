@@ -575,7 +575,6 @@ def parse_passive_skills(passive_skills_list: list, hero_stats: dict, lang_db: d
 
     parsed_items = []
     main_max_level = parsers.get("main_max_level", 8)
-    # Define dedicated language subsets for passive skills
     title_lang_subset = [k for k in lang_db if k.startswith("herocard.passive_skill.title.")]
     desc_lang_subset = [k for k in lang_db if k.startswith("herocard.passive_skill.description.")]
 
@@ -588,56 +587,92 @@ def parse_passive_skills(passive_skills_list: list, hero_stats: dict, lang_db: d
         if not (skill_id and skill_type):
             continue
 
-        # --- Hybrid lang_id finding for TITLE ---
-        constructed_title_id = f"herocard.passive_skill.title.{skill_type}.{skill_id}"
+        # --- Your Algorithm, Step 1 & 2: Find the definitive TITLE ID ---
         title_lang_id = None
-        if constructed_title_id in lang_db:
-            title_lang_id = constructed_title_id
-        else:
-            # Fallback to smart search if direct construction fails
-            title_lang_id = find_best_lang_id(skill_data, title_lang_subset)
+        # First, roughly filter candidates by prefix
+        prefix = f"herocard.passive_skill.title.{skill_type}"
+        title_candidates = [k for k in title_lang_subset if k.startswith(prefix)]
+        
+        if title_candidates:
+            # Then, collect deep keywords from the skill data to refine the search
+            skill_keywords_with_depth = _collect_keywords_recursively(skill_data)
+            skill_keywords = {kw for kw, depth in skill_keywords_with_depth}
 
-        # --- Hybrid lang_id finding for DESCRIPTION ---
-        constructed_desc_id = f"herocard.passive_skill.description.{skill_type}.{skill_id}"
+            title_scores = []
+            for candidate in title_candidates:
+                score = 0
+                parts = candidate.split('.')
+                # Score based on how many of the skill's deep keywords are in the lang_id
+                for kw in skill_keywords:
+                    if kw in parts:
+                        score += 1
+                title_scores.append({'key': candidate, 'score': score})
+            
+            if title_scores:
+                best_title = sorted(title_scores, key=lambda x: (-x['score'], len(x['key'])))[0]
+                title_lang_id = best_title['key']
+
+        # --- Your Algorithm, Step 3 & 4: Find the definitive DESCRIPTION ID ---
         desc_lang_id = None
-        if constructed_desc_id in lang_db:
-            desc_lang_id = constructed_desc_id
-        else:
-            # Fallback to smart search
-            desc_lang_id = find_best_lang_id(skill_data, desc_lang_subset)
+        if title_lang_id:
+            # Try to find a direct match by replacing .title. with .description.
+            ideal_desc_id = title_lang_id.replace('.title.', '.description.', 1)
+            if ideal_desc_id in lang_db:
+                desc_lang_id = ideal_desc_id
+            else:
+                # If no direct match, fallback to prefix search and refinement
+                prefix = f"herocard.passive_skill.description.{skill_type}"
+                desc_candidates = [k for k in desc_lang_subset if k.startswith(prefix)]
+                
+                if desc_candidates:
+                    skill_keywords_with_depth = _collect_keywords_recursively(skill_data)
+                    skill_keywords = {kw for kw, depth in skill_keywords_with_depth}
+                    
+                    # Refine by keeping only candidates that match the skill's keywords
+                    refined_candidates = []
+                    for candidate in desc_candidates:
+                        parts = candidate.split('.')
+                        is_valid = True
+                        # Exclusion logic: if a keyword from the lang_id is NOT in the skill data, it's a bad match
+                        # (This is complex, so we'll use a simpler inclusion logic for now)
+                        if any(kw in parts for kw in skill_keywords):
+                             refined_candidates.append(candidate)
+                    
+                    if refined_candidates:
+                        # From the refined list, choose the shortest one
+                         desc_lang_id = min(refined_candidates, key=len)
+                    elif desc_candidates: # If refinement yields nothing, use the shortest from the original candidates
+                         desc_lang_id = min(desc_candidates, key=len)
 
-        # --- Parameter Resolution ---
-        title_template = lang_db.get(title_lang_id, {}).get("en", "")
-        desc_template = lang_db.get(desc_lang_id, {}).get("en", "")
-        all_placeholders = set(re.findall(r'\{(\w+)\}', title_template + desc_template))
 
-        lang_params = {}
-        search_context = {**skill_data, "maxLevel": main_max_level}
-        for p_holder in all_placeholders:
-            value, found_key = find_and_calculate_value(p_holder, search_context, main_max_level, hero_id, rules)
-            if value is not None:
-                # Handle DoT damage for passives
-                if p_holder.upper() == "DAMAGE" and "permil" in (found_key or "").lower():
-                     lang_params[p_holder] = math.floor((value / 100) * hero_stats.get("max_attack", 0))
-                else:
-                    lang_params[p_holder] = value
-        
-        # Format parameters (e.g., add '+' sign)
-        formatted_params = {}
-        for k, v in lang_params.items():
-            formatted_params[k] = format_value(v)
-        
-        # Generate final texts
-        title_texts = generate_description(title_lang_id, formatted_params, lang_db)
-        desc_texts = generate_description(desc_lang_id, formatted_params, lang_db)
+        # --- Parameter Resolution (if lang_ids were found) ---
+        if title_lang_id and desc_lang_id:
+            title_template = lang_db.get(title_lang_id, {}).get("en", "")
+            desc_template = lang_db.get(desc_lang_id, {}).get("en", "")
+            all_placeholders = set(re.findall(r'\{(\w+)\}', title_template + desc_template))
 
-        parsed_items.append({
-            "id": skill_id,
-            "title_en": title_texts.get("en", ""),
-            "title_ja": title_texts.get("ja", ""),
-            "description_en": desc_texts.get("en", ""),
-            "description_ja": desc_texts.get("ja", ""),
-            "params": json.dumps(lang_params)
-        })
+            lang_params = {}
+            search_context = {**skill_data, "maxLevel": main_max_level}
+            for p_holder in all_placeholders:
+                value, found_key = find_and_calculate_value(p_holder, search_context, main_max_level, hero_id, rules)
+                if value is not None:
+                    if p_holder.upper() == "DAMAGE" and "permil" in (found_key or "").lower():
+                         lang_params[p_holder] = math.floor((value / 100) * hero_stats.get("max_attack", 0))
+                    else:
+                        lang_params[p_holder] = value
+            
+            formatted_params = {k: format_value(v) for k, v in lang_params.items()}
+            title_texts = generate_description(title_lang_id, formatted_params, lang_db)
+            desc_texts = generate_description(desc_lang_id, formatted_params, lang_db)
+
+            parsed_items.append({
+                "id": skill_id,
+                "title_en": title_texts.get("en", ""), "title_ja": title_texts.get("ja", ""),
+                "description_en": desc_texts.get("en", ""), "description_ja": desc_texts.get("ja", ""),
+                "params": json.dumps(lang_params)
+            })
+        else: # If the new algorithm failed, log it.
+            print(f"\n  - Warning: Could not resolve passive lang_ids for skill '{skill_id}'")
+            parsed_items.append({ "id": skill_id, "title_en": f"FAILED: {skill_id}", "description_en": "lang_id resolution failed."})
 
     return parsed_items
