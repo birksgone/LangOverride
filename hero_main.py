@@ -52,7 +52,10 @@ def _format_final_description(skill_descriptions: dict, lang: str, skill_types_t
         if not items:
             return
             
-        for item in items:
+        # --- FIX: Reverse the list for passives to match in-game display order ---
+        processed_items = reversed(items) if is_passive else items
+
+        for item in processed_items:
             if not isinstance(item, dict):
                 continue
 
@@ -201,15 +204,12 @@ def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, rules:
         processed_hero = hero.copy()
         processed_hero['name'] = hero_final_stats.get('name')
         
-        # --- Active Skill (Special) Parsing ---
-        special_id = hero.get("specialId")
         skill_descriptions = {}
         
-        if not special_id or not (special_data := game_db['character_specials'].get(special_id)):
-            processed_hero['skillDescriptions'] = {}
-        else:
+        # --- Active Skill (Special) Parsing ---
+        special_id = hero.get("specialId")
+        if special_id and (special_data := game_db['character_specials'].get(special_id)):
             parsers["hero_mana_speed_id"] = hero.get("manaSpeedId")
-                
             prop_list = special_data.get("properties", [])
             se_list = special_data.get("statusEffects", [])
             familiar_list = special_data.get("summonedFamiliars", [])
@@ -221,10 +221,15 @@ def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, rules:
                 'familiars': parsers['familiars'](familiar_list, special_data, hero_final_stats, lang_db, game_db, hero_id, rules, parsers)
             }
         
-        # --- NEW: Passive Skill Parsing ---
+        # --- Passive Skill Parsing ---
         passive_list = full_hero_data.get('passiveSkills', [])
-        costume_passive_list = full_hero_data.get('costumeBonusPassiveSkillIds_details', []) # Assuming this is the resolved key name
         
+        # --- FIX: Correctly get costume passives from the resolved data structure ---
+        costume_passive_list = []
+        if costume_bonuses := full_hero_data.get('costumeBonusesId_details'):
+            if isinstance(costume_bonuses, dict):
+                 costume_passive_list = costume_bonuses.get('passiveSkills', [])
+
         all_passives = passive_list + costume_passive_list
         if all_passives:
             skill_descriptions['passiveSkills'] = parsers['passive_skills'](all_passives, hero_final_stats, lang_db, game_db, hero_id, rules, parsers)

@@ -1,0 +1,229 @@
+_Passive Master,,,4,5,6,7,8,9,10,_Passive Master
+ID,,,ICON,TITLE,DESCRIPTION,EN,JA,EN,JA,
+attack_buff_on_damage_received,,↗️,passive_attack_buff_on_damage_received.png,herocard.passive_skill.title.effectondamagereceived.none.specialskill.exclude.statuseffect.stacking_attack_on_damage_received_passive,herocard.passive_skill.description.effectondamagereceived.none.specialskill.exclude.statuseffect.stacking_attack_on_damage_received_passive.single.allies.onceperturn,Stacking Attack on Damage Received,被ダメージ時の累積効果攻撃力,"When this character receives damage from [#!]Special Skills[#], they gain {STATUSEFFECT1ATTACK}% attack [#!]Stack[#] (max: {STATUSEFFECT1MAXSTACK}). One Stack can be gained per turn.",このキャラクターが[#!]特殊スキル[#]によるダメージを受けると、{STATUSEFFECT1ATTACK}%の攻撃力の[#!]累積効果[#]を獲得する（最大：{STATUSEFFECT1MAXSTACK}）。1ターンに獲得可能な累積効果は1つのみ。,
+remove_wither_from_allies,,↗️,passive_remove_wither_from_allies.png,herocard.passive_skill.title.remove_wither_from_allies,herocard.passive_skill.description.removebasestatmodifiers.removenegative.from.all.allies,Guard Rally,ガードラリー,"Every [#!]{TURNS}[#] turns, removes all Wither effects from all allies.",[#!]{TURNS}[#]ターンごとに、仲間全員の弱体効果すべてが解除される。,
+resist_direct_mana_reductions,,↗️,custom_resist_mana_reduction.png,herocard.passive_skill.title.resist.manareduction,herocard.passive_skill.description.resist.manareduction,Resist Mana Reduction,マナ奪取耐性,This character has innate resistance against [#!]mana reduction[#].,このキャラクターは[#!]マナ奪取[#]に対する耐性を最初から持つ。,
+summon_slime_minion_on_damage_red,,↗️,passive_slime_minion_split.png,herocard.passive_skill.title.summononreceiveddamagewiththreshold.slime_big_minion_red,herocard.passive_skill.description.summononreceiveddamagewiththreshold.slime_big_minion_red,Slime Minion Split,スライムミニオンの分裂,"If this character loses more than [#!]{DAMAGETHRESHOLD}%[#] of max health at once, they summon a [#!]Slime Mega Minion[#] for themselves with [#!]{FAMILIARHEALTHPERCENT}%[#] HP and [#!]{FAMILIARATTACK}%[#] attack.",このキャラクターが、1回の攻撃により最大ライフの[#!]{DAMAGETHRESHOLD}%[#]を失うと、自身のもとに[#!]{FAMILIARHEALTHPERCENT}%[#]のHPと[#!]{FAMILIARATTACK}%[#]の攻撃力を備えた[#!]スライムのメガミニオン[#]をサモンする。,
+summon_slime_minion_on_damage_blue,,↗️,passive_slime_minion_split.png,herocard.passive_skill.title.summononreceiveddamagewiththreshold.slime_big_minion_blue,herocard.passive_skill.description.summononreceiveddamagewiththreshold.slime_big_minion_blue,Slime Minion Split,スライムミニオンの分裂,"If this character loses more than [#!]{DAMAGETHRESHOLD}%[#] of max health at once, they summon a [#!]Slime Mega Minion[#] for themselves with [#!]{FAMILIARHEALTHPERCENT}%[#] HP and [#!]{FAMILIARATTACK}%[#] attack.",このキャラクターが、1回の攻撃により最大ライフの[#!]{DAMAGETHRESHOLD}%[#]を失うと、自身のもとに[#!]{FAMILIARHEALTHPERCENT}%[#]のHPと[#!]{FAMILIARATTACK}%[#]の攻撃力を備えた[#!]スライムのメガミニオン[#]をサモンする。,
+summon_slime_minion_on_damage_green,,↗️,passive_slime_minion_split.png,herocard.passive_skill.title.summononreceiveddamagewiththreshold.slime_big_minion_green,herocard.passive_skill.description.summononreceiveddamagewiththreshold.slime_big_minion_green,Slime Minion Split,スライムミニオンの分裂,"If this character loses more than [#!]{DAMAGETHRESHOLD}%[#] of max health at once, they summon a [#!]Slime Mega Minion[#] for themselves with [#!]{FAMILIARHEALTHPERCENT}%[#] HP and [#!]{FAMILIARATTACK}%[#] attack.",このキャラクターが、1回の攻撃により最大ライフの[#!]{DAMAGETHRESHOLD}%[#]を失うと、自身のもとに[#!]{FAMILIARHEALTHPERCENT}%[#]のHPと[#!]{FAMILIARATTACK}%[#]の攻撃力を備えた[#!]スライムのメガミニオン[#]をサモンする。,
+summon_slime_minion_on_damage_yellow,,↗️,passive_slime_minion_split.png,herocard.passive_skill.title.summononreceiveddamagewiththreshold.slime_big_minion_yellow,herocard.passive_skill.description.summononreceiveddamagewiththreshold.slime_big_minion_yellow,Slime Minion Split,スライムミニオンの分裂,"If this character loses more than [#!]{DAMAGETHRESHOLD}%[#] of max health at once, they summon a [#!]Slime Mega Minion[#] for themselves with [#!]{FAMILIARHEALTHPERCENT}%[#] HP and [#!]{FAMILIARATTACK}%[#] attack.",このキャラクターが、1回の攻撃により最大ライフの[#!]{DAMAGETHRESHOLD}%[#]を失うと、自身のもとに[#!]{FAMILIARHEALTHPERCENT}%[#]のHPと[#!]{FAMILIARATTACK}%[#]の攻撃力を備えた[#!]スライムのメガミニオン[#]をサモンする。,
+summon_slime_minion_on_damage_purple,,↗️,passive_slime_minion_split.png,herocard.passive_skill.title.summononreceiveddamagewiththreshold.slime_big_minion_purple,herocard.passive_skill.description.summononreceiveddamagewiththreshold.slime_big_minion_purple,Slime Minion Split,スライムミニオンの分裂,"If this character loses more than [#!]{DAMAGETHRESHOLD}%[#] of max health at once, they summon a [#!]Slime Mega Minion[#] for themselves with [#!]{FAMILIARHEALTHPERCENT}%[#] HP and [#!]{FAMILIARATTACK}%[#] attack.",このキャラクターが、1回の攻撃により最大ライフの[#!]{DAMAGETHRESHOLD}%[#]を失うと、自身のもとに[#!]{FAMILIARHEALTHPERCENT}%[#]のHPと[#!]{FAMILIARATTACK}%[#]の攻撃力を備えた[#!]スライムのメガミニオン[#]をサモンする。,
+summon_slime_minion_on_death_red,,↗️,passive_slime_minion_sacrifice.png,herocard.passive_skill.title.summononownerdeath.slime_big_minion_blue.neartotargetexceptcaster.allies,herocard.passive_skill.description.summononownerdeath.slime_big_minion_blue.neartotargetexceptcaster.allies,Slime Minion upon Defeat,敗北時にスライムミニオンを付与,"When this character is defeated, they summon [#!]Slime Mega Minions[#] to nearby allies with [#!]{FAMILIARHEALTHPERCENT}%[#] HP and [#!]{FAMILIARATTACK}%[#] attack inherited from this character.",このキャラクターが倒れると、このキャラクターの[#!]{FAMILIARHEALTHPERCENT}%[#]のHPと[#!]{FAMILIARATTACK}%[#]の攻撃力を持つスライムの[#!]メガミニオン[#]が、近くにいる仲間のもとにサモンされる。,
+summon_slime_minion_on_death_blue,,↗️,passive_slime_minion_sacrifice.png,herocard.passive_skill.title.summononownerdeath.slime_big_minion_blue.neartotargetexceptcaster.allies,herocard.passive_skill.description.summononownerdeath.slime_big_minion_blue.neartotargetexceptcaster.allies,Slime Minion upon Defeat,敗北時にスライムミニオンを付与,"When this character is defeated, they summon [#!]Slime Mega Minions[#] to nearby allies with [#!]{FAMILIARHEALTHPERCENT}%[#] HP and [#!]{FAMILIARATTACK}%[#] attack inherited from this character.",このキャラクターが倒れると、このキャラクターの[#!]{FAMILIARHEALTHPERCENT}%[#]のHPと[#!]{FAMILIARATTACK}%[#]の攻撃力を持つスライムの[#!]メガミニオン[#]が、近くにいる仲間のもとにサモンされる。,
+summon_slime_minion_on_death_purple,,↗️,passive_slime_minion_sacrifice.png,herocard.passive_skill.title.summononownerdeath.slime_big_minion_purple.neartotargetexceptcaster.allies,herocard.passive_skill.description.summononownerdeath.slime_big_minion_purple.neartotargetexceptcaster.allies,Slime Minion upon Defeat,敗北時にスライムミニオンを付与,"When this character is defeated, they summon [#!]Slime Mega Minions[#] to nearby allies with [#!]{FAMILIARHEALTHPERCENT}%[#] HP and [#!]{FAMILIARATTACK}%[#] attack inherited from this character.",このキャラクターが倒れると、このキャラクターの[#!]{FAMILIARHEALTHPERCENT}%[#]のHPと[#!]{FAMILIARATTACK}%[#]の攻撃力を持つスライムの[#!]メガミニオン[#]が、近くにいる仲間のもとにサモンされる。,
+summon_slime_minion_on_death_yellow,,↗️,passive_slime_minion_sacrifice.png,herocard.passive_skill.title.summononownerdeath.slime_big_minion_yellow.neartotargetexceptcaster.allies,herocard.passive_skill.description.summononownerdeath.slime_big_minion_purple.neartotargetexceptcaster.allies,Slime Minion upon Defeat,敗北時にスライムミニオンを付与,"When this character is defeated, they summon [#!]Slime Mega Minions[#] to nearby allies with [#!]{FAMILIARHEALTHPERCENT}%[#] HP and [#!]{FAMILIARATTACK}%[#] attack inherited from this character.",このキャラクターが倒れると、このキャラクターの[#!]{FAMILIARHEALTHPERCENT}%[#]のHPと[#!]{FAMILIARATTACK}%[#]の攻撃力を持つスライムの[#!]メガミニオン[#]が、近くにいる仲間のもとにサモンされる。,
+moon_extra_special_damage_and_mana_regen_debuff,,↗️,passive_s5moon_dizzy.png,herocard.passive_skill.title.effectonspecialchancepermanaspeed,,Effects on Special Skill,特殊スキルの効果,"60% chance to perform the following actions when this character casts their Special Skill:<ul class=""familybullet""><li>Deals 70% damage to all enemies.</li><li>All enemies get -24% mana generation for 3 turns.</li></ul>","このキャラクターが特殊スキルを使用すると、60%の確率で次の効果を発揮できる：<ul class=""familybullet""><li>敵全員に70%のダメージを与える。</li><li>3ターンの間、敵全員のマナ生成が-24%になる。</li></ul>",
+resist_sand,,↗️,passive_resist_sand.png,herocard.passive_skill.title.resist.sand,herocard.passive_skill.description.resist.sand,Resist Sand Damage,砂ダメージ耐性,This character has innate resistance against [#!]Sand[#] damage.,このキャラクターは[#!]砂[#]ダメージに対する耐性を最初から持つ,
+iterate_passive_effects_on_special,,↗️,iterate_passive_effects_on_special.png,herocard.passive_skill.title.iterateeffectonspecial,herocard.passive_skill.description.iterateeffectonspecial,Extra Chance for Effects On Special Skill,特殊スキルの効果追加発動,"When this character casts their Special Skill, any of their Passive Skills that grant extra effects on cast have {APPLYCOUNT} chances to activate.",このキャラクターが特殊スキルを使用すると、使用時に追加効果を与えるこのキャラクターのすべてのパッシブスキルが{APPLYCOUNT}回発動するようになる。,
+sun_extra_special_heal_and_cleanse_latest_debuff,,↗️,s5-cleanse.png,herocard.passive_skill.title.effectonspecialchancepermanaspeed,,Effects on Special Skill,特殊スキルの効果,"60% chance to perform the following actions when this character casts their Special Skill:<ul class=""familybullet""><li>Boosts health of all allies by [#!]10%[#]. Boosted health can exceed max HP.</li><li>Cleanses the latest cleansable status ailment from all allies.</li></ul>","このキャラクターが特殊スキルを使用すると、60%の確率で次の効果を発揮できる：<ul class=""familybullet""><li>仲間全員のライフを[#!]10%[#]回復する。ライフ値が最大HPを超えた場合は、一時的に最大HP値が増加する。</li><li>仲間全員の浄化可能な最新のステータス異常を浄化する。</li></ul>",
+heal_on_buff,,↗️,passive_heal_on_buff.png,herocard.passive_skill.title.effectonstatuseffectaddition.heal.allbuffs,herocard.passive_skill.description.effectonstatuseffectaddition.heal.allbuffs,Health Recovery on Buff Received,バフを受けるごとのライフ回復,This character recovers [#!]{POWER}%[#] health when they receive a buff or a positive stack.,バフまたはプラスの累積状態の間、このキャラクターのライフが[#!]{POWER}%[#]回復する,
+guaranteed_passive_effects_on_special,,↗️,guaranteed_passive_effects_on_special.png,herocard.passive_skill.title.guaranteedeffectonspecial,herocard.passive_skill.description.guaranteedeffectonspecial,Guaranteed Effect On Special Skill,特殊スキルの効果確定発動,"When this character casts their Special Skill, any of their Passive Skills that grant extra effects on cast are guaranteed to activate.",このキャラクターが特殊スキルを使用すると、使用時に追加効果を与えるこのキャラクターのすべてのパッシブスキルが必ず発動するようになる。,
+dodge_enemy_damage_special,,↗️,status_dodge_special.png,herocard.passive_skill.title.dodgespecialdamage,herocard.passive_skill.description.dodgespecialdamage,Dodge Special Damage,特殊スキル回避,This character has a [#!]{CHANCE}%[#] chance to dodge Special Skills that deal damage.,このキャラクターは[#!]{CHANCE}%[#]の確率でダメージ付きの特殊スキルを回避する。,
+resist_negative_attack_modifiers_including_wither,,↗️,passive_Resist_Attack_Reduction_1.png,herocard.passive_skill.title.resist.allattackmodifiersincludingwither.alldebuffs,herocard.passive_skill.description.resist.allattackmodifiersincludingwither.alldebuffs,Resist Attack Reduction,攻撃力低下耐性,"This character has innate resistance against status ailments, stacks and Wither effects that affect [#!]attack[#].",このキャラクターは[#!]攻撃力[#]に影響するステータス異常、重複効果、弱体効果への耐性を最初から持つ。,
+resist_insanity,,↗️,passive_resist_insanity.png,herocard.passive_skill.title.resist.insanity.permanentstatuseffects,herocard.passive_skill.description.resist.insanity.permanentstatuseffects,Resist Insanity,狂気耐性,This character has innate resistance against [#!]Insanity[#].,このキャラクターは[#!]狂気[#]に対する耐性を最初から持つ。,
+molten_core,,↗️,passive_molten_core.png,herocard.passive_skill.title.corrosiveburncorechargeeffectonspecial.statuseffects.corrosiveburn,passiveskill.statuseffect.corrosiveburncorechargeeffectonspecial.minor.corrosiveburn.all.enemies.defensemodifier,Molten Core,溶解のコア,"This character has a [#!]Molten Core[#].
+
+The Molten Core activates each time this character's Special Skill is cast:
+
+[*] All enemies receive Corrosive Burn for {TURNS} turns. With a fully charged [#!]Molten Core[#], the Corrosive Burn deals {DAMAGEPERTURN} Burn damage  and lowers the target's defense by {CHANGE}% each turn.
+[*] The Burn damage is scaled by the amount of charge in the Core. All charge is exhausted when the Core is activated.","このキャラクターは[#!]溶解のコア[#]を持っている。
+
+溶解のコアはこのキャラクターが特殊スキルを使用するたびに有効になる：
+
+[*]{TURNS}ターンの間、敵全員に腐食性燃焼を与える。[#!]溶解のコア[#]のチャージが満タンになると、ターン毎にターゲットに腐食性燃焼による{DAMAGEPERTURN}の燃焼ダメージを与え、ターゲットの防御力を{CHANGE}%減少させる。
+[*]この際に与える燃焼ダメージはコアのチャージ量に基づいて決められる。コアが有効になると、すべてのチャージが消耗される。",
+resist_burn_with_health_boost_and_mana,,↗️,passive_burn_block_with_hp_boost.png,herocard.passive_skill.title.resist.burn.with_effect.healthboost.addmana,herocard.passive_skill.description.resist.burn.with_effect.healthboost.addmana,Empowered Resist Burn,強化燃焼抵抗,This character has innate resistance against [#!]Burn[#] and gains {HEALTHBOOST} boosted health and {MANA}% mana each time they resist.,このキャラクターは[#!]燃焼[#]に対する耐性を最初から持つ。これにより、抵抗に成功するたびにライフが{HEALTHBOOST}ブーストされ、さらに{MANA}%のマナも獲得する。,
+hunters_mark_on_special,,↗️,passive_jungle_camouflage.png,herocard.passive_skill.title.effectonspecialwithchance.statuseffects.huntersmark,passiveskill.statuseffect.effectonspecialwithchance.minor.huntersmark.random.enemies.always,Damage Over Time On Special,一定期間の特殊スキルによるダメージ,"When this character casts their Special Skill, they give a Hunter's Mark on a random enemy. The target receives {BASICDAMAGE} damage over {TURNS} turns.
+
+If a target already has this effect, the duration will be refreshed and the damage will be increased by {EXTRADAMAGE}, up to {MAXDAMAGE} damage in total.","このキャラクターが特殊スキルを使用すると、ランダムな敵にハンターのしるしを付与し、{TURNS}ターンに渡ってターゲットに{BASICDAMAGE}ダメージを与える。
+
+ターゲットがすでにこの効果を受けている場合は持続時間がリセットされ、合計{MAXDAMAGE}を上限に、ダメージが{EXTRADAMAGE}増加する。",
+special_damage_reduction_monster_hunters,,↗️,passive_mark_of_the_hunter.png,herocard.passive_skill.title.specialdamagereduction,herocard.passive_skill.description.specialdamagereduction.chance,Special Skill Damage Reduction,特殊スキルによるダメージ軽減,This character has a {CHANCE}% chance to drop the direct damage received from Special Skills to 1.,このキャラクターは、{CHANCE}%の確率で、特殊スキルによって受けるダメージを1にする。,
+mana_on_enemy_burn,,↗️,passive_mana_on_enemy_burn.png,herocard.passive_skill.title.burn.effectondamageovertime.activates_on_enemy_action.addmana,herocard.passive_skill.description.burn.effectondamageovertime.activates_on_enemy_action.addmana,Mana on Burn,燃焼マナ,This character gains [#!]{POWER}%[#] mana each time an enemy receives Burn damage.,このキャラクターのマナは、敵が燃焼ダメージを受けるたびに[#!]{POWER}%[#]増加する,
+resist_burn,,↗️,passive_resist_burn.png,herocard.passive_skill.title.resist.burn,herocard.passive_skill.description.resist.burn,Resist Burn,燃焼耐性,This character has innate resistance against [#!]Burn[#].,このキャラクターは[#!]燃焼[#]に対する耐性を最初から持つ,
+never_miss_special,,↗️,status_never_miss.png,herocard.passive_skill.title.nevermissspecial,herocard.passive_skill.description.nevermissspecial,Perfect Accuracy,百発百中の命中率,This character's Special Skill never misses its targets.,このキャラクターの特殊スキルはターゲットに必ず命中する。,
+resist_negative_minion_effects,,↗️,passive_resist_minon_negative_effect.png,herocard.passive_skill.title.resistnegativefamiliareffects.minion,herocard.passive_skill.description.resistnegativefamiliareffects.minion,Resist Negative Minion Effects,マイナスのミニオン効果耐性,This character has innate resistance against incoming [#!]negative effects and damage from Minions[#].,このキャラクターは、[#!]ミニオンによるマイナスの影響とダメージ[#]への耐性を最初から持つ。,
+bypass_minions,,↗️,passive_bypass_minions.png,herocard.passive_skill.title.bypassfamiliars.minion,herocard.passive_skill.description.bypassfamiliars.minion,Bypass Minions,ミニオン貫通,All damage done by this character bypasses Minions.,このキャラクターによって与えられる全ダメージがミニオンを貫通する。,
+tales1_extra_special_damage_and_add_critical,,↗️,passive_tales1_extra_special_damage_and_add_critical.png,herocard.passive_skill.title.effectonspecialchancepermanaspeed,herocard.passive_skill.description.effectonspecialchancepermanaspeed,Effects on Special Skill,特殊スキルの効果,[#!]{CHANCE}%[#] chance to perform the following actions when this character casts their Special Skill:,"このキャラクターが特殊
+スキルを使用すると、[#!]{CHANCE}%[#]の
+確率で次の効果を発揮できる：",
+reduce_minion_health,,↗️,passive_reduce_minion_health.png,herocard.passive_skill.title.reduceminionhealth.all.enemies,herocard.passive_skill.description.reduceminionhealth.all.enemies,#N/A,#N/A,#N/A,#N/A,
+mana_on_buff,,↗️,passive_mana_from_buff.png,herocard.passive_skill.title.effectonstatuseffectaddition.addmana.allbuffs,herocard.passive_skill.description.effectonstatuseffectaddition.addmana.allbuffs,Mana on Buff Received,バフを受けるごとのマナ,This character gains [#!]{POWER}%[#] mana when they receive a buff or a positive stack.,バフまたはプラスの累積状態の間、このキャラクターのマナが[#!]{POWER}%[#]増加する。,
+remove_growth_from_enemies,,↗️,passive_remove_wither_from_allies.png,herocard.passive_skill.title.remove_growth_from_enemies,herocard.passive_skill.description.removebasestatmodifiers.removepositive.from.all.enemies,Guard Rally,ガードラリー,"Every [#!]{TURNS}[#] turns, removes all Growth effects from all enemies.",[#!]{TURNS}[#]ターンごとに、敵全員の成長効果すべてが解除される。,
+summon_slime_minion_on_death_green,,↗️,passive_slime_minion_sacrifice.png,herocard.passive_skill.title.summononownerdeath.slime_big_minion_green.neartotargetexceptcaster.allies,herocard.passive_skill.description.summononownerdeath.slime_big_minion_green.neartotargetexceptcaster.allies,Slime Minion upon Defeat,敗北時にスライムミニオンを付与,"When this character is defeated, they summon [#!]Slime Mega Minions[#] to nearby allies with [#!]{FAMILIARHEALTHPERCENT}%[#] HP and [#!]{FAMILIARATTACK}%[#] attack inherited from this character.",このキャラクターが倒れると、このキャラクターの[#!]{FAMILIARHEALTHPERCENT}%[#]のHPと[#!]{FAMILIARATTACK}%[#]の攻撃力を持つスライムの[#!]メガミニオン[#]が、近くにいる仲間のもとにサモンされる。,
+resist_all_defense_effects,,↗️,passive_resist_defense_dodge_cattitude.png,herocard.passive_skill.title.resist_all_defense_effects,herocard.passive_skill.description.resist.defensemodifiers.defensewither.defensegrowth.allstatuseffectsandstacks,"Trait: 
+Lithe Frame","特性：
+柔軟な体","This character is not affected by effects that increase or reduce [#!]defense[#].
+
+This includes 
+[*] Status effect buffs and ailments
+[*] Positive and negative Stacks
+[*] Growth and Wither effects","このキャラクターは[#!]防御力[#]の増減に影響するステータス効果を無効化する。
+
+これには
+[*]ステータス効果バフやステータス異常、
+[*]プラスやマイナスの累積、
+[*]弱化および成長効果を含む。",
+revive_chance_nine_lives,,↗️,passive_revive_chance_nine_lives.png,herocard.passive_skill.title.revive_chance_nine_lives,herocard.passive_skill.description.revivewithchance.healthrecoverymultiplier.manarecoverymultiplier.activationreducedchance,Nine Lives,九生あり,"[*]When defeated, this character has {TOTALCHANCE}% chance to revive at the beginning of their next turn with {HEALTH}% health and {MANA}% mana. 
+
+[*]Activates up to {MAXACTIVATIONCOUNT} times. Chance to revive is reduced on each activation. Can't be prevented with status ailments or Passive Skills.","[*]このキャラクターが倒されると、{TOTALCHANCE}%の確率で、次のターン開始時に{HEALTH}%のライフと{MANA}%のマナで復活する。
+
+[*]この効果は最大{MAXACTIVATIONCOUNT}回まで発動する。発動するごとにキャラクターが復活する確率は減少する。この効果の発動がステータス異常やパッシブスキルによって阻害されることはない。",
+sun_extra_special_damage_and_attack_debuff,,↗️,passive_s5sun_stun.png,herocard.passive_skill.title.effectonspecialchancepermanaspeed,herocard.passive_skill.description.effectonspecialchancepermanaspeed,Effects on Special Skill,特殊スキルの効果,[#!]{CHANCE}%[#] chance to perform the following actions when this character casts their Special Skill:,セクメト-コス参照,
+resist_special_blocking,,↗️,passive_skill_blocking.png,herocard.passive_skill.title.resist.specialblocking,herocard.passive_skill.description.resist.specialblocking,Resist Special Skill Blocking,特殊スキルブロック耐性,This character has innate resistance against status ailments that [#!]block Special Skills[#].,このキャラクターは[#!]特殊スキルブロック[#]への耐性を最初から持つ,
+revival_chance_modifier_all_enemies,,↗️,passive_revival_chance_modifier.png,herocard.passive_skill.title.revivalchancemodifier.all.enemies,herocard.passive_skill.description.revivalchancemodifier.all.enemies,Revival Chance Reduction,復活確率の減少,The chance of revival is reduced for all enemies in the battle. The chance is [#!]{MODIFIER}%[#] of the original value.,バトル中の敵全員の復活確率を減少させる。確率は元の値の[#!]{MODIFIER}%[#]になる。,
+cleansed_ailments_to_enemy,,↗️,cleansed_ailments_to_enemy.png,herocard.passive_skill.title.statuseffectoncleanse.single.enemies,herocard.passive_skill.description.statuseffectoncleanse.single.enemies,Copy Ailment on Cleanse,浄化時に状態異常をコピー,"When a status ailment is cleansed from this hero, a new copy of the cleansed ailment is applied on a random enemy.",この英雄のステータス異常が浄化されると、浄化されたそのステータス異常が敵1体にランダムで付与される。,
+arctic_core,,↗️,passive_arctic_core.png,herocard.passive_skill.title.corrosivefrostcorechargeeffectonspecial.statuseffects.corrosivefrost,passiveskill.statuseffect.corrosivefrostcorechargeeffectonspecial.minor.corrosivefrost.all.enemies.attackmodifier,Arctic Core,極寒のコア,"This character has an [#!]Arctic Core[#].
+
+The Arctic Core activates each time this character's Special Skill is cast:
+
+[*] All enemies receive Corrosive Frost for {TURNS} turns. With a fully charged [#!]Arctic Core[#], the Corrosive Frost deals {DAMAGEPERTURN} Frost damage and lowers the target's attack by {CHANGE}% each turn.
+[*] The Frost damage is scaled by the amount of charge in the Core. All charge is exhausted when the Core is activated.","このキャラクターは[#!]極寒のコア[#]を持っている。
+
+極寒のコアはこのキャラクターが特殊スキルを使用するたびに有効になる：
+
+[*]{TURNS}ターンの間、敵全員に腐食性フロストを与える。[#!]極寒のコア[#]のチャージが満タンになると、ターン毎にターゲットに腐食性フロストによる{DAMAGEPERTURN}のフロストダメージを与え、ターゲットの攻撃力を{CHANGE}%減少させる。
+[*]この際に与えるフロストダメージはコアのチャージ量に基づいて決められる。コアが有効になると、すべてのチャージが消耗される。",
+resist_frost_with_health_boost_and_mana,,↗️,passive_burn_block_frost.png,herocard.passive_skill.title.resist.frost.with_effect.healthboost.addmana,herocard.passive_skill.description.resist.frost.with_effect.healthboost.addmana,Empowered Resist Frost,強化フロスト抵抗,This character has innate resistance against [#!]Frost[#] and gains {HEALTHBOOST} boosted health and {MANA}% mana each time they resist.,このキャラクターは[#!]フロスト[#]に対する耐性を最初から持つ。これにより、抵抗に成功するたびにライフが{HEALTHBOOST}ブーストされ、さらに{MANA}%のマナも獲得する。,
+mana_on_enemy_health_boost_special,,↗️,mana_on_enemy_health_boost_special.png,herocard.passive_skill.title.effectonspecialcastwitheffecttype.activates_on_enemy_action.addmana.on_healthboost_cast,herocard.passive_skill.description.effectonspecialcastwitheffecttype.activates_on_enemy_action.addmana.on_healthboost_cast,Mana On Health Boosting Special Skill,特殊スキルでライフブースト時にマナを獲得,This character gains [#!]{POWER}%[#] mana each time an enemy casts a Special Skill that directly boosts health.,敵がライフを直接ブーストさせる特殊スキルを使用するたびに、このキャラクターのマナが[#!]{POWER}%[#]増加する。,
+reduce_big_minion_health,,↗️,passive_unstoppable_minions.png,herocard.passive_skill.title.familiarhealthmodifier.all.enemies.bigminion.decrease,herocard.passive_skill.description.familiarhealthmodifier.all.enemies.bigminion.decrease,Weaker Mega Minions,メガミニオン弱体化,Enemy [#!]Mega Minions[#] have [#!]-75%[#] HP.,敵の[#!]メガミニオン[#]のHPが[#!]-75%[#]になる。,
+fly_magic_carpet,,↗️,passive_fly.png,herocard.passive_skill.title.chargebasedmodifier.managenerationmodifier.dodgemodifier,herocard.passive_skill.description.chargebasedmodifier.managenerationmodifier.dodgemodifier,Flight Momentum,飛行推進力,"If this character has any amount of [#!]Flight Momentum[#], they receive:
+[*]Up to {MAXMANAGENERATIONMODIFIER}% mana generation.
+[*]Up to {MAXDODGEMODIFIER}% extra chance to dodge. 
+[*]The effects diminish the less  [#!]Flight Momentum[#] character has.","このキャラクターの[#!]飛行推進力[#]が残っている場合、以下を獲得する：
+[*]最大{MAXMANAGENERATIONMODIFIER}%のマナ生成。
+[*]最大+{MAXDODGEMODIFIER}%の回避確率。
+[*]この効果はキャラクターの[#!]飛行推進力[#]が少なくなると減少してゆく。",
+mimic_training_hero_red,,↗️,passive_mimic_training_hero_red.png,herocard.passive_skill.title.mimiclootonlevelcompleted,herocard.passive_skill.description.mimiclootonlevelcompleted.mimic_training_hero_red,Mimic Loot,ミミックの戦利品,"This Mimic gives a chance for extra loot when completing stages:
+
+[*]Common [##elementred]Fire[#] Trainer Heroes
+[*]Uncommon [##elementred]Fire[#] Trainer Heroes
+[*]Rare [##elementred]Fire[#] Trainer Heroes
+ 
+[*]Common [##elementred]Fire[#] Heroes
+[*]Uncommon [##elementred]Fire[#] Heroes","ステージをクリアすると、このミミックは追加で戦利品を獲得する確率を上げる：
+
+[*]コモン・[##elementred]炎属性[#]トレーナー英雄
+[*]アンコモン・[##elementred]炎属性[#]トレーナー英雄
+[*]レア・[##elementred]炎属性[#]トレーナー英雄
+ 
+[*]コモン・[##elementred]炎属性[#]英雄
+[*]アンコモン・[##elementred]炎属性[#]英雄",
+mimic_training_hero_blue,,↗️,passive_mimic_training_hero_blue.png,herocard.passive_skill.title.mimiclootonlevelcompleted,herocard.passive_skill.description.mimiclootonlevelcompleted.mimic_training_hero_blue,Mimic Loot,ミミックの戦利品,"This Mimic gives a chance for extra loot when completing stages:
+
+[*]Common [##elementblue]Ice[#] Trainer Heroes
+[*]Uncommon [##elementblue]Ice[#] Trainer Heroes
+[*]Rare [##elementblue]Ice[#] Trainer Heroes
+ 
+[*]Common [##elementblue]Ice[#] Heroes
+[*]Uncommon [##elementblue]Ice[#] Heroes","ステージをクリアすると、このミミックは追加で戦利品を獲得する確率を上げる：
+
+[*]コモン・[##elementblue]氷属性[#]トレーナー英雄
+[*]アンコモン・[##elementblue]氷属性[#]トレーナー英雄
+[*]レア・[##elementblue]氷属性[#]トレーナー英雄
+ 
+[*]コモン・[##elementblue]氷属性[#]英雄
+[*]アンコモン・[##elementblue]氷属性[#]英雄",
+mimic_training_hero_green,,↗️,passive_mimic_training_hero_green.png,herocard.passive_skill.title.mimiclootonlevelcompleted,herocard.passive_skill.description.mimiclootonlevelcompleted.mimic_training_hero_green,Mimic Loot,ミミックの戦利品,"This Mimic gives a chance for extra loot when completing stages:
+
+[*]Common [##elementgreen]Nature[#] Trainer Heroes
+[*]Uncommon [##elementgreen]Nature[#] Trainer Heroes
+[*]Rare [##elementgreen]Nature[#] Trainer Heroes
+ 
+[*]Common [##elementgreen]Nature[#] Heroes
+[*]Uncommon [##elementgreen]Nature[#] Heroes","ステージをクリアすると、このミミックは追加で戦利品を獲得する確率を上げる：
+
+[*]コモン・[##elementgreen]自然属性[#]トレーナー英雄
+[*]アンコモン・[##elementgreen]自然属性[#]トレーナー英雄
+[*]レア・[##elementgreen]自然属性[#]トレーナー英雄
+ 
+[*]コモン・[##elementgreen]自然属性[#]英雄
+[*]アンコモン・[##elementgreen]自然属性[#]英雄",
+mimic_training_hero_yellow,,↗️,passive_mimic_training_hero_yellow.png,herocard.passive_skill.title.mimiclootonlevelcompleted,herocard.passive_skill.description.mimiclootonlevelcompleted.mimic_training_hero_yellow,Mimic Loot,ミミックの戦利品,"This Mimic gives a chance for extra loot when completing stages:
+
+[*]Common [##elementyellow]Holy[#] Trainer Heroes
+[*]Uncommon [##elementyellow]Holy[#] Trainer Heroes
+[*]Rare [##elementyellow]Holy[#] Trainer Heroes
+ 
+[*]Common [##elementyellow]Holy[#] Heroes
+[*]Uncommon [##elementyellow]Holy[#] Heroes","ステージをクリアすると、このミミックは追加で戦利品を獲得する確率を上げる：
+
+[*]コモン・[##elementyellow]聖属性[#]トレーナー英雄
+[*]アンコモン・[##elementyellow]聖属性[#]トレーナー英雄
+[*]レア・[##elementyellow]聖属性[#]トレーナー英雄
+ 
+[*]コモン・[##elementyellow]聖属性[#]英雄
+[*]アンコモン・[##elementyellow]聖属性[#]英雄",
+mimic_training_hero_purple,,↗️,passive_mimic_training_hero_purple.png,herocard.passive_skill.title.mimiclootonlevelcompleted,herocard.passive_skill.description.mimiclootonlevelcompleted.mimic_training_hero_purple,Mimic Loot,ミミックの戦利品,"This Mimic gives a chance for extra loot when completing stages:
+
+[*]Common [##elementpurple]Dark[#] Trainer Heroes
+[*]Uncommon [##elementpurple]Dark[#] Trainer Heroes
+[*]Rare [##elementpurple]Dark[#] Trainer Heroes
+ 
+[*]Common [##elementpurple]Dark[#] Heroes
+[*]Uncommon [##elementpurple]Dark[#] Heroes","ステージをクリアすると、このミミックは追加で戦利品を獲得する確率を上げる：
+
+[*]コモン・[##elementpurple]闇属性[#]トレーナー英雄
+[*]アンコモン・[##elementpurple]闇属性[#]トレーナー英雄
+[*]レア・[##elementpurple]闇属性[#]トレーナー英雄
+ 
+[*]コモン・[##elementpurple]闇属性[#]英雄
+[*]アンコモン・[##elementpurple]闇属性[#]英雄",
+mimic_ascension_item_red					,,↗️,passive_mimic_training_hero_red.png,herocard.passive_skill.title.mimiclootonlevelcompleted,,Mimic Loot,ミミックの戦利品,,,
+mimic_ascension_item_blue,,↗️,passive_mimic_training_hero_blue.png,herocard.passive_skill.title.mimiclootonlevelcompleted,,Mimic Loot,ミミックの戦利品,,,
+mimic_ascension_item_green,,↗️,passive_mimic_training_hero_green.png,herocard.passive_skill.title.mimiclootonlevelcompleted,,Mimic Loot,ミミックの戦利品,,,
+mimic_ascension_item_yelow,,↗️,passive_mimic_training_hero_yellow.png,herocard.passive_skill.title.mimiclootonlevelcompleted,,Mimic Loot,ミミックの戦利品,,,
+mimic_ascension_item_purple,,↗️,passive_mimic_training_hero_purple.png,herocard.passive_skill.title.mimiclootonlevelcompleted,,Mimic Loot,ミミックの戦利品,,,
+resist_mana_reductions_with_health_boost_and_mana,,↗️,passive_block_empowered_mana_reduction.png,herocard.passive_skill.title.resist.manareduction.none.with_effect.healthboost.addmana,herocard.passive_skill.description.resist.manareduction.none.with_effect.healthboost.addmana,Empowered Resist Mana Reduction,強化マナ奪取耐性,This character has innate resistance against mana reductions. They also gain [#!]{HEALTHBOOST}[#] boosted health and [#!]{MANA}%[#] mana each time they resist.,このキャラクターはマナ減少に対する耐性を最初から持つ。また、抵抗に成功するたびにライフが[#!]{HEALTHBOOST}[#]ブーストされ、さらに[#!]{MANA}%[#]のマナも獲得する。,
+resist_minion_removal,,↗️,passive_block_minion_block.png,herocard.passive_skill.title.resistfamiliarremoval.minion.bigminion,herocard.passive_skill.description.resistfamiliarremoval.minion.bigminion,Resist Minion Removal,ミニオン排除耐性,This character has innate resistance against [#!]Minion removal[#].,このキャラクターは[#!]ミニオン排除[#]への耐性を最初から持つ,
+tales1_extra_special_damage_and_add_stacking_mana_generation,,↗️,passive_tales1_extra_special_damage_and_add_status_effect_on_dodged_special.png,herocard.passive_skill.title.effectonspecialchancepermanaspeed,herocard.passive_skill.description.effectonspecialchancepermanaspeed,Effects on Special Skill,特殊スキルの効果,[#!]{CHANCE}%[#] chance to perform the following actions when this character casts their Special Skill:,"このキャラクターが特殊
+スキルを使用すると、[#!]{CHANCE}%[#]の
+確率で次の効果を発揮できる：",
+reduced_healing_for_all_enemies,,↗️,passive_reduced_healing_for_all_enemies.png,herocard.passive_skill.title.healmodifier.all.enemies.decrease,herocard.passive_skill.description.healmodifier.all.enemies.decrease,Decreased healing,回復量低下,All enemies get [#!]{HEALMULTIPLIER}%[#] healing.,敵全員の回復量が[#!]{HEALMULTIPLIER}%[#]になる。,
+resist_negative_defense_modifiers_including_wither,,↗️,passive_resist_defense_down_1.png,herocard.passive_skill.title.resist.alldefensemodifiersincludingwither.alldebuffs,herocard.passive_skill.description.resist.alldefensemodifiersincludingwither.alldebuffs,Resist Defense Reduction,防御力低下耐性,"This character has innate resistance against status ailments, stacks and Wither effects that affect [#!]defense[#].",このキャラクターは[#!]防御力[#]に影響するステータス異常、重複効果、弱体効果への耐性を最初から持つ。,
+righteous_rebellion_parent,,↗️,passive_righteous_rebellion.png,herocard.passive_skill.title.effectonspecialskilldamagedonebasedonhealthdifference.healthboost.once.effectonspecialskilldamagereceivedbasedonhealthdifference.addmana.once,herocard.passive_skill.description.effectonspecialskilldamagedonebasedonhealthdifference.healthboost.once.effectonspecialskilldamagereceivedbasedonhealthdifference.addmana.once,Righteous Rebellion,正義の反乱,"[*] When this character's Special Skill hits a character that had higher current HP, gain [#!]{PASSIVESKILL1HEALTHBOOST}%[#] boosted health.
+[*] When this character is hit by the Special Skill of a character that had higher current HP, gain [#!]{PASSIVESKILL2MANA}%[#] mana.
+[*]Each of these effects can activate once per turn.","[*]このキャラクターの特殊スキルで、現在のHPがより高いキャラクターに攻撃を与えると、[#!]{PASSIVESKILL1HEALTHBOOST}%[#]のHPボーナスを得る。
+[*] このキャラクターが、現在のHPがより高いキャラクターの特殊スキルで攻撃を受けると、マナが[#!]{PASSIVESKILL2MANA}%[#]回復する。
+[*]これらの効果はそれぞれ、ターン毎に1度だけ発動する。",
+cleanse_on_special_critical_damage_all_safe,,↗️,passive_special_critical_cleanse.png,herocard.passive_skill.title.effectonspecialskilldamagedone.bufftoremove.minordebuff.latest.safe.only_criticals.once,herocard.passive_skill.description.effectonspecialskilldamagedone.bufftoremove.minordebuff.latest.from.all.allies.safe.only_criticals.once,Cleanse on Critical Special Attack,クリティカル特殊攻撃時の浄化,"When this character scores a [#!]critical hit[#] with their Special Skill, they safely cleanse the latest cleansable status ailment from all allies. This effect can activate once per turn.",このキャラクターが特殊スキルを使用して[#!]クリティカル攻撃[#]を与えると、仲間全員から最新のステータス異常を解除する。この効果はターンごとに1度だけ発動する。,
+resist_bleed,,↗️,passive_resist_bleed.png,herocard.passive_skill.title.resist.bleed,herocard.passive_skill.description.resist.bleed,Resist Bleed Damage,出血ダメージ耐性,This character has innate resistance against [#!]Bleed[#].,このキャラクターは[#!]出血[#]に対する耐性を最初から持つ,
+magic_damage_on_full_charge_costume,,↗️,passive_damage_on_full_charge.png,herocard.passive_skill.title.effectonspecialwithchance.damage,herocard.passive_skill.description.effectonspecialwithchance.damage,Damage on Special,特殊スキルによるダメージ,#N/A,#N/A,
+heal_on_own_familiar_death_more,,↗️,passive_heal_on_miniondeath.png,herocard.passive_skill.title.healonownfamiliardeath.minion,herocard.passive_skill.description.healonownfamiliardeath.minion,Health from Dead Minion,倒れたミニオンによるライフ,This character recovers [#!]{HEALTH}[#] health when a Minion owned by them is destroyed.,所有するミニオンが倒されるたびに、このキャラクターのライフが[#!]{HEALTH}[#]回復する,
+resist_water,,↗️,passive_resist_water.png,herocard.passive_skill.title.resist.water,herocard.passive_skill.description.resist.water,Resist Water Damage,水ダメージ耐性,This character has innate resistance against [#!]Water[#] damage.,このキャラクターは[#!]水[#]ダメージに対する耐性を最初から持つ,
+underwater_on_special_beach,,↗️,passive_underwater_on_special_beach.png,herocard.passive_skill.title.effectonspecialwithchance.statuseffects.underwater,passiveskill.statuseffect.effectonspecialwithchance.minor.underwater.all.enemies.always,Damage Over Time on Special,一定期間の特殊スキルによるダメージ,"When this character casts their Special Skill, all enemies receive {DAMAGE} Water damage over {TURNS} turns.",このキャラクターが特殊スキルを使用すると、敵全員が{TURNS}ターンにわたって{DAMAGE}の水ダメージを受ける。,
+bypass_minions_and_mega_minions,,↗️,passive_bypass_minions.png,herocard.passive_skill.title.bypassfamiliars.minion,herocard.passive_skill.description.bypassfamiliars.minion,Bypass Minions,ミニオン貫通,All damage done by this character bypasses Minions.,このキャラクターによって与えられる全ダメージがミニオンを貫通する。,
+eat_fiends_on_special_cast,,↗️,passive_eat_fiends_on_special_cast.png,herocard.passive_skill.title.eatfamiliarsonspecialcast.parasite.allies.single,herocard.passive_skill.description.eatfamiliarsonspecialcast.parasite.allies.single,Destroy Fiends on Special,特殊スキルでフィエンドを破壊する,"When this character casts their Special Skill, all Fiends are destroyed from them.",このキャラクターが特殊スキルを使用すると、スキルをかけられた全てのフィエンドが破壊される。,
+eat_fiends_on_special_cast,,↗️,passive_resist_minon_negative_effect.png,herocard.passive_skill.title.resistnegativefamiliareffects.minion.bigminion,passiveskill.statuseffect.effectonspecialwithchance.minor.underwater.all.enemies.always,Superior Resist Negative Minion Effects,マイナスのミニオン効果耐性大,"When this character casts their Special Skill, all enemies receive {DAMAGE} Water damage over {TURNS} turns.",このキャラクターが特殊スキルを使用すると、敵全員が{TURNS}ターンにわたって{DAMAGE}の水ダメージを受ける。,
+increased_damage_against_minions_and_mega_minions,,↗️,passive_increase_damage_against_minions.png,herocard.passive_skill.title.increaseddamageagainstfamiliars.minion.bigminion,herocard.passive_skill.description.increaseddamageagainstfamiliars.minion.bigminion,Extra Damage to Minions & Mega Minions,ミニオンとメガミニオンに追加ダメージ,This character does {DAMAGEMULTIPLIER}% damage to Minions and Mega Minions.,このキャラクターはミニオンとメガミニオンに対し、{DAMAGEMULTIPLIER}%のダメージを与える。,
+mana_on_damage_received,,↗️,passive_mana_on_damage_received.png,herocard.passive_skill.title.effectondamagereceived.addmana.troop.npcnormalattack.specialskill,herocard.passive_skill.description.effectondamagereceived.addmana.troop.npcnormalattack.specialskill.single.allies,Mana On Damage Received,被ダメージによるマナ,"[*]When this character receives direct damage from [#!]Special Skills[#] or [#!]Normal Attacks[#] they receive a small amount of mana. 
+[*] Maximum of [#!]{MAXMANAGAINPERTURN}%[#] mana gained per turn.","[*]このキャラクターが[#!]特殊スキル[#]または[#!]通常攻撃[#]により直接ダメージを受けると、マナが少量回復する。
+[*]1ターンにつき最大[#!]{MAXMANAGAINPERTURN}%[#]まで回復。",
+resist_negative_minion_and_mega_minion_effects,,↗️,passive_block_superior_minion_negative_effect.png,herocard.passive_skill.title.resistnegativefamiliareffects.minion.bigminion,herocard.passive_skill.description.resistnegativefamiliareffects.minion.bigminion,Superior Resist Negative Minion Effects,マイナスのミニオン効果耐性大,This character has innate resistance against incoming [#!]negative effects and damage from Minions and Mega Minions[#].,このキャラクターは、[#!]ミニオンとメガミニオンによるマイナスの影響とダメージ[#]への耐性を最初から持つ。,
+glass_reflect_debuffs,,↗️,passive_glass_reflect.png,herocard.passive_skill.title.glass_reflect_debuffs,herocard.passive_skill.description.reflectstatuseffect.with_chance,Glass,ガラス,[#!]{CHANCE}%[#] extra chance to reflect status ailments back to the attacker.,ステータス異常を攻撃者に反射する確率がさらに[#!]{CHANCE}%[#]上昇。,
+strong_troop_damage_modifier_costume,,↗️,super-elemental-passive.png,herocard.passive_skill.title.sidedependentpassiveskill.strong_troop_damage_modifier_costume,,Troop Mastery,兵団の達人,,"<ul class=""""familybullet""""><li class=""family_nobullet"">[#!]攻撃側キャクターとしてのパッシブ[#]：</li><li class=""family_nobullet"">この英雄の兵団が自分よりも弱い属性の敵に与えるダメージが増加する：</li><li>追加の与属性ダメージ：[#!]+150%[#]</li><li class=""family_nobullet"">[#!]防御キャラクターとしてのパッシブスキル[#]：</li><li class=""family_nobullet"">この英雄が自分よりも強い属性の兵団から与えられるダメージが軽減する。</li><li>被属性ダメージ：[#!]-25%[#]</li></ul>",
+minion_and_mega_minion_accuracy_modifier,,↗️,passive_minion_blind.png,,,,,,,
+mana_on_debuff,,↗️,passive_mana_on_debuff.png,herocard.passive_skill.title.effectonstatuseffectaddition.addmana.alldebuffs,herocard.passive_skill.description.effectonstatuseffectaddition.addmana.alldebuffs,Mana on Status Ailment Received,ステータス異常を受けるごとのマナ,This character gains [#!]{POWER}%[#] mana when they receive a status ailment or a negative stack.,ステータス異常またはマイナスの累積状態の間、このキャラクターのマナが[#!]{POWER}%[#]増加する,
+resist_poison,,↗️,passive_resist_poison.png,herocard.passive_skill.title.resist.poison,herocard.passive_skill.description.resist.poison,Resist Poison,毒耐性,This character has innate resistance against [#!]Poison[#].,このキャラクターは[#!]毒[#]に対する耐性を最初から持つ,
+resist_heal_multiplier_debuffs,,↗️,passive_heal_debuff_blopck.png,herocard.passive_skill.title.resist.healeffects,herocard.passive_skill.description.resist.healeffects,Resist Healing Ailments,回復異常耐性,This character has innate resistance against status ailments that affect [#!]healing[#].,このキャラクターは[#!]回復[#]に影響するステータス異常への耐性を最初から持つ,
+magic_heal_on_full_charge_costume,,↗️,passive_heal_on_full_charge.png,herocard.passive_skill.title.effectonspecialwithchance.heal,herocard.passive_skill.description.effectonspecialwithchance.heal.all.allies,Health Recovery on Special,特殊スキルによるHP回復,"When this character casts their Special Skill, they have a [#!]{CHANCE}%[#] chance to recover [#!]{POWER}%[#] health for all allies. If the Special Skill is fully charged, the chance is [#!]{CHANCEFULLYCHARGED}%[#].","このキャラクターが
+特殊スキルを使用した場合、
+[#!]{CHANCE}%[#]の確率で、仲間全員のHPを
+[#!]{POWER}%[#]回復させる。
+特殊スキルがフルチャージ
+された場合は、確率が
+[#!]{CHANCEFULLYCHARGED}%[#]になる。",
+moon_extra_special_damage_and_dispel_latest_buff,,↗️,s5-dizzy.png,herocard.passive_skill.title.effectonspecialchancepermanaspeed,herocard.passive_skill.description.effectonspecialchancepermanaspeed,Effects on Special Skill,特殊スキルの効果,[#!]{CHANCE}%[#] chance to perform the following actions when this character casts their Special Skill:,"このキャラクターが特殊
+スキルを使用すると、[#!]{CHANCE}%[#]の
+確率で次の効果を発揮できる：",
+magic_add_mana_on_full_charge_costume,,↗️,passive_mana_on_full_charge.png,herocard.passive_skill.title.effectonspecialwithchance.addmana,herocard.passive_skill.description.effectonspecialwithchance.addmana.all.allies,Mana on Special,特殊スキルによるマナ,"When this character casts their Special Skill, they have a [#!]{CHANCE}%[#] chance to give [#!]{POWER}%[#] mana to all allies. If the Special Skill is fully charged, the chance is [#!]{CHANCEFULLYCHARGED}%[#].","このキャラクターが
+特殊スキルを使用した場合、
+[#!]{CHANCE}%[#]の確率で、仲間全員の
+マナを[#!]{POWER}%[#]増加させる。
+特殊スキルがフルチャージ
+された場合は、確率が
+[#!]{CHANCEFULLYCHARGED}%[#]になる。",
+magic_mana_regen_stack_on_special_costume,,↗️,passive_mana_down_stack_on_special.png,herocard.passive_skill.title.doubleeffectonchargedspecial.statuseffects.stackingmanagenerationmodifier.stacks,passiveskill.statuseffect.doubleeffectonchargedspecial.minor.stackingmanagenerationmodifier.all.enemies,Stack on Special,特殊スキルを累積,"When this character casts their Special Skill, all enemies get {MANAREGEN}% mana generation stack. If the Special Skill is fully charged, all enemies get two stacks. An enemy can have up to 10 stacks.",このキャラクターが特殊スキルを使用すると、敵全員が{MANAREGEN}%のマナ生成累積効果を獲得する。特殊スキルがフルチャージされた場合は、敵全員の累積効果が2倍になる。敵1体につき、獲得可能な累積効果は10倍まで。,
+heal_mana_on_low_health_once,,↗️,passive_heal_mana_on_low_health_once.png,herocard.passive_skill.title.conditionaleffectovertime.usable_once.heal.addmana.everyturn.while.single.allies.lowhealth,herocard.passive_skill.description.conditionaleffectovertime.usable_once.heal.addmana.everyturn.while.single.allies.lowhealth,Power of Sisu,シスの力,"When this character starts a turn with low health for the first time during a battle, they recover [#!]{HEALTH}%[#] health and receive [#!]{MANA}%[#] mana.",このキャラクターがバトル中にライフが低い状態で初めてターンを開始した場合、このキャラクターのライフが[#!]{HEALTH}%[#]回復し、マナが[#!]{MANA}%[#]増加する。,
+resist_buff_immunity,,↗️,passive_resist_buff_immunity.png,herocard.passive_skill.title.resist.buffimmunity,herocard.passive_skill.description.resist.buffimmunity,Resist Buff Immunity,バフ無効耐性,This character has innate resistance against status ailments that give immunity to new buffs.,このキャラクターは新たなバフがすべて無効となるステータス異常への耐性を最初から持つ,
+resist_accuracy_modifier_debuffs,,↗️,passive_block_blind-accuracy.png,herocard.passive_skill.title.resist.accuracymodifiers,herocard.passive_skill.description.resist.accuracymodifiers,Resist Blind,暗闇耐性,This character has innate resistance against status ailments that affect [#!]accuracy[#]. Doesn't apply to original status effects from allies.,このキャラクターは[#!]命中率[#]に影響するステータス異常への耐性を最初から持つ（仲間から受けるもともとのステータス効果には無効)。,
