@@ -42,13 +42,11 @@ OUTPUT_CSV_PATH = SCRIPT_DIR / "hero_skill_output.csv"
 DEBUG_JSON_PATH = SCRIPT_DIR / "debug_hero_data.json"
 
 # --- CSV Output Function ---
-def _format_final_description(skill_descriptions: dict, lang: str) -> str:
+def _format_final_description(skill_descriptions: dict, lang: str, skill_types_to_include: list) -> str:
     """
-    A helper function to recursively traverse skill data and format it into a single string.
+    A helper function to format a SPECIFIC LIST of skill types into a single string.
     """
     output_lines = []
-    
-    skill_order = ['directEffect', 'properties', 'statusEffects', 'familiars', 'passiveSkills']
     
     def process_level(items: list, is_passive=False):
         if not items:
@@ -62,7 +60,6 @@ def _format_final_description(skill_descriptions: dict, lang: str) -> str:
                 title_key = f'title_{lang}'
                 title = item.get(title_key, "").strip()
                 if title:
-                    # Add a separator and the title for each passive
                     output_lines.append(f"\n- {title} -")
 
             desc_key = f'description_{lang}' if f'description_{lang}' in item else lang
@@ -77,16 +74,13 @@ def _format_final_description(skill_descriptions: dict, lang: str) -> str:
             if 'nested_effects' in item and item['nested_effects']:
                 process_level(item['nested_effects'], is_passive=False)
 
-    for skill_type in skill_order:
+    for skill_type in skill_types_to_include:
         skill_data = skill_descriptions.get(skill_type)
         if not skill_data:
             continue
         
         items_to_process = skill_data if isinstance(skill_data, list) else [skill_data]
         is_passive_skill = (skill_type == 'passiveSkills')
-        
-        if is_passive_skill and any(items_to_process) and output_lines:
-             output_lines.append("\n--- Passives ---")
             
         process_level(items_to_process, is_passive=is_passive_skill)
             
@@ -101,12 +95,18 @@ def write_final_csv(processed_data: list, output_path: Path):
         return
         
     output_rows = []
+
+    ss_skill_types = ['directEffect', 'properties', 'statusEffects', 'familiars']
+
     for hero in processed_data:
+        skills = hero.get('skillDescriptions', {})
         output_rows.append({
             "hero_id": hero.get('id'),
             "hero_name": hero.get('name', 'N/A'),
-            "final_description_en": _format_final_description(hero.get('skillDescriptions', {}), 'en'),
-            "final_description_ja": _format_final_description(hero.get('skillDescriptions', {}), 'ja'),
+            "passive_en": _format_final_description(skills, 'en', skill_types_to_include=['passiveSkills']),
+            "passive_ja": _format_final_description(skills, 'ja', skill_types_to_include=['passiveSkills']),
+            "ss_en": _format_final_description(skills, 'en', skill_types_to_include=ss_skill_types),
+            "ss_ja": _format_final_description(skills, 'ja', skill_types_to_include=ss_skill_types),
         })
         
     try:
