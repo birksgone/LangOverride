@@ -199,66 +199,95 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, he
         else:
             return int(calculated_val), found_key
 
+def _collect_keywords_recursively(data_block, depth=0, max_depth=2) -> list:
+    """
+    Recursively collects string values from a data block as keywords,
+    along with their nesting depth.
+    """
+    if depth > max_depth:
+        return []
+
+    keywords = []
+    
+    # Collect keywords from the current level
+    if isinstance(data_block, dict):
+        for key, value in data_block.items():
+            if isinstance(value, str):
+                # Add the value itself (e.g., "AddStatusEffects") and the key name (e.g., "propertyType")
+                keywords.append((value.lower(), depth))
+                # keywords.append((key.lower(), depth + 1)) # Keys are slightly less important
+    
+    # Recurse into nested lists
+    if isinstance(data_block, dict):
+        # Define keys that are known to contain lists of other skill blocks
+        list_keys_to_scan = ['statusEffects', 'effects', 'statusEffectsToAdd', 'statusEffectCollections', 'properties']
+        for key in list_keys_to_scan:
+            if key in data_block and isinstance(data_block[key], list):
+                for item in data_block[key]:
+                    keywords.extend(_collect_keywords_recursively(item, depth + 1, max_depth))
+
+    elif isinstance(data_block, list):
+        for item in data_block:
+            keywords.extend(_collect_keywords_recursively(item, depth + 1, max_depth))
+            
+    return keywords
+
 def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dict = None) -> str:
+    # --- Step 1: Direct Construction (Unchanged) ---
     if 'statusEffect' in data_block:
         buff_map = {
             "MinorDebuff": "minor", "MajorDebuff": "major",
             "MinorBuff": "minor", "MajorBuff": "major",
             "PermanentDebuff": "permanent", "PermanentBuff": "permanent"
         }
+        # ... (The direct construction logic is the same as before, so it's condensed here)
         intensity = buff_map.get(data_block.get('buff'))
         status_effect_val = data_block.get('statusEffect')
         effect_name = status_effect_val.lower() if isinstance(status_effect_val, str) else None
-        target = (parent_block or data_block).get('statusTargetType', '').lower()
-        side = (parent_block or data_block).get('sideAffected', '').lower()
+        target_from_data = (parent_block or data_block).get('statusTargetType', '')
+        target = target_from_data.lower() if isinstance(target_from_data, str) else ''
+        side_from_data = (parent_block or data_block).get('sideAffected', '')
+        side = side_from_data.lower() if isinstance(side_from_data, str) else ''
         if all([intensity, effect_name, target, side]):
             constructed_id = f"specials.v2.statuseffect.{intensity}.{effect_name}.{target}.{side}"
             if constructed_id in lang_key_subset: return constructed_id
-
-    keywords = {k.lower(): v.lower() for k, v in data_block.items() if isinstance(v, str)}
-    if parent_block and isinstance(parent_block, dict):
-        context_keys = ['targettype', 'sideaffected', 'statustargettype']
-        for key in context_keys:
-            if key in parent_block and isinstance(parent_block[key], str):
-                if key not in keywords: keywords[key] = parent_block[key].lower()
-
-    prop_type, status_effect = keywords.get('propertytype'), keywords.get('statuseffect')
-    primary_keyword_raw = prop_type or status_effect
-    primary_keyword = primary_keyword_raw.strip() if isinstance(primary_keyword_raw, str) else None
+            
+    # --- Step 2: Weighted Scoring using Deep Keyword Collection ---
+    
+    # Collect all keywords from the block and its children, with depth information.
+    # We also include the parent block to catch contextual keywords.
+    contextual_block = {**data_block, "parent": parent_block}
+    all_keywords_with_depth = _collect_keywords_recursively(contextual_block, depth=0)
+    
+    # Deduplicate while preserving the keyword with the shallowest depth
+    seen_keywords = {}
+    for kw, depth in all_keywords_with_depth:
+        if kw not in seen_keywords or depth < seen_keywords[kw]:
+            seen_keywords[kw] = depth
     
     potential_matches = []
-    
-    if primary_keyword:
-        filtered_candidates = [k for k in lang_key_subset if primary_keyword in k.split('.')]
+    for lang_key in lang_key_subset:
+        score = 0
+        lang_key_parts = lang_key.lower().split('.')
         
-        for lang_key in filtered_candidates:
-            score, lang_key_parts = 0, lang_key.lower().split('.')
-            if primary_keyword in lang_key_parts: score += 100
-            
-            other_keywords = {'effecttype', 'targettype', 'sideaffected', 'buff', 'statustargettype'}
-            for key_name in other_keywords:
-                if value := keywords.get(key_name):
-                    if value.lower() in lang_key_parts: score += 5
+        # Calculate score based on matched keywords and their depth
+        for kw, depth in seen_keywords.items():
+            if kw in lang_key_parts:
+                # Keywords found at shallower depths get exponentially higher scores
+                score += 100 / (2 ** depth)
 
-            if 'fixedpower' in lang_key_parts and ('fixedPower' in data_block or data_block.get('hasFixedPower')): score += 3
-            if any(isinstance(v, (int, float)) and v < 0 for v in data_block.values()) and 'decrement' in lang_key_parts: score += 2
+        # Add a small bonus for certain structural keywords, if they exist
+        if 'fixedpower' in lang_key_parts and 'hasfixedpower' in seen_keywords:
+            score += 3
+        if 'decrement' in lang_key_parts and any(isinstance(v, (int, float)) and v < 0 for v in data_block.values()):
+            score += 2
 
-            if score > 0: potential_matches.append({'key': lang_key, 'score': score})
-
-    if not potential_matches and primary_keyword:
-        for lang_key in lang_key_subset:
-            score, lang_key_parts = 0, lang_key.lower().split('.')
-            other_keywords = {'targettype', 'sideaffected'}
-            matched_secondary_keywords = 0
-            for key_name in other_keywords:
-                if value := keywords.get(key_name):
-                    if value.lower() in lang_key_parts:
-                        score += 5
-                        matched_secondary_keywords += 1
-            if matched_secondary_keywords > 0:
-                potential_matches.append({'key': lang_key, 'score': score})
-
+        if score > 0:
+            potential_matches.append({'key': lang_key, 'score': score})
+    
+    # --- Step 3: Final Decision ---
     if not potential_matches:
+        primary_keyword = (data_block.get('propertyType') or data_block.get('statusEffect') or 'N/A')
         print(f"\n  - Warning: Could not find lang_id for skill '{data_block.get('id', 'UNKNOWN')}' (type: {primary_keyword})")
         return None
 
