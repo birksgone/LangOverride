@@ -568,3 +568,76 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
             "nested_effects": nested_effects
         })
     return parsed_items
+
+def parse_passive_skills(passive_skills_list: list, hero_stats: dict, lang_db: dict, game_db: dict, hero_id: str, rules: dict, parsers: dict) -> list:
+    if not passive_skills_list:
+        return []
+
+    parsed_items = []
+    main_max_level = parsers.get("main_max_level", 8)
+    # Define dedicated language subsets for passive skills
+    title_lang_subset = [k for k in lang_db if k.startswith("herocard.passive_skill.title.")]
+    desc_lang_subset = [k for k in lang_db if k.startswith("herocard.passive_skill.description.")]
+
+    for skill_data in passive_skills_list:
+        if not isinstance(skill_data, dict):
+            continue
+        
+        skill_id = skill_data.get("id")
+        skill_type = skill_data.get("passiveSkillType", "").lower()
+        if not (skill_id and skill_type):
+            continue
+
+        # --- Hybrid lang_id finding for TITLE ---
+        constructed_title_id = f"herocard.passive_skill.title.{skill_type}.{skill_id}"
+        title_lang_id = None
+        if constructed_title_id in lang_db:
+            title_lang_id = constructed_title_id
+        else:
+            # Fallback to smart search if direct construction fails
+            title_lang_id = find_best_lang_id(skill_data, title_lang_subset)
+
+        # --- Hybrid lang_id finding for DESCRIPTION ---
+        constructed_desc_id = f"herocard.passive_skill.description.{skill_type}.{skill_id}"
+        desc_lang_id = None
+        if constructed_desc_id in lang_db:
+            desc_lang_id = constructed_desc_id
+        else:
+            # Fallback to smart search
+            desc_lang_id = find_best_lang_id(skill_data, desc_lang_subset)
+
+        # --- Parameter Resolution ---
+        title_template = lang_db.get(title_lang_id, {}).get("en", "")
+        desc_template = lang_db.get(desc_lang_id, {}).get("en", "")
+        all_placeholders = set(re.findall(r'\{(\w+)\}', title_template + desc_template))
+
+        lang_params = {}
+        search_context = {**skill_data, "maxLevel": main_max_level}
+        for p_holder in all_placeholders:
+            value, found_key = find_and_calculate_value(p_holder, search_context, main_max_level, hero_id, rules)
+            if value is not None:
+                # Handle DoT damage for passives
+                if p_holder.upper() == "DAMAGE" and "permil" in (found_key or "").lower():
+                     lang_params[p_holder] = math.floor((value / 100) * hero_stats.get("max_attack", 0))
+                else:
+                    lang_params[p_holder] = value
+        
+        # Format parameters (e.g., add '+' sign)
+        formatted_params = {}
+        for k, v in lang_params.items():
+            formatted_params[k] = format_value(v)
+        
+        # Generate final texts
+        title_texts = generate_description(title_lang_id, formatted_params, lang_db)
+        desc_texts = generate_description(desc_lang_id, formatted_params, lang_db)
+
+        parsed_items.append({
+            "id": skill_id,
+            "title_en": title_texts.get("en", ""),
+            "title_ja": title_texts.get("ja", ""),
+            "description_en": desc_texts.get("en", ""),
+            "description_ja": desc_texts.get("ja", ""),
+            "params": json.dumps(lang_params)
+        })
+
+    return parsed_items

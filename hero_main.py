@@ -28,7 +28,8 @@ from hero_parser import (
     parse_direct_effect,
     parse_properties,
     parse_status_effects,
-    parse_familiars
+    parse_familiars,
+    parse_passive_skills
 )
 
 # --- Constants & Paths ---
@@ -187,25 +188,35 @@ def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, rules:
         processed_hero = hero.copy()
         processed_hero['name'] = hero_final_stats.get('name')
         
+        # --- Active Skill (Special) Parsing ---
         special_id = hero.get("specialId")
+        skill_descriptions = {}
+        
         if not special_id or not (special_data := game_db['character_specials'].get(special_id)):
             processed_hero['skillDescriptions'] = {}
-            processed_heroes_data.append(processed_hero)
-            continue
-        
-        # --- NEW: Pass hero's manaSpeedId to the parsers dict for context ---
-        parsers["hero_mana_speed_id"] = hero.get("manaSpeedId")
-            
-        prop_list = special_data.get("properties", [])
-        se_list = special_data.get("statusEffects", [])
-        familiar_list = special_data.get("summonedFamiliars", [])
+        else:
+            parsers["hero_mana_speed_id"] = hero.get("manaSpeedId")
+                
+            prop_list = special_data.get("properties", [])
+            se_list = special_data.get("statusEffects", [])
+            familiar_list = special_data.get("summonedFamiliars", [])
 
-        processed_hero['skillDescriptions'] = {
-            'directEffect': parsers['direct_effect'](special_data, hero_final_stats, lang_db, game_db, hero_id, rules, parsers),
-            'properties': parsers['properties'](prop_list, special_data, hero_final_stats, lang_db, game_db, hero_id, rules, parsers),
-            'statusEffects': parsers['status_effects'](se_list, special_data, hero_final_stats, lang_db, game_db, hero_id, rules, parsers),
-            'familiars': parsers['familiars'](familiar_list, special_data, hero_final_stats, lang_db, game_db, hero_id, rules, parsers)
-        }
+            skill_descriptions = {
+                'directEffect': parsers['direct_effect'](special_data, hero_final_stats, lang_db, game_db, hero_id, rules, parsers),
+                'properties': parsers['properties'](prop_list, special_data, hero_final_stats, lang_db, game_db, hero_id, rules, parsers),
+                'statusEffects': parsers['status_effects'](se_list, special_data, hero_final_stats, lang_db, game_db, hero_id, rules, parsers),
+                'familiars': parsers['familiars'](familiar_list, special_data, hero_final_stats, lang_db, game_db, hero_id, rules, parsers)
+            }
+        
+        # --- NEW: Passive Skill Parsing ---
+        passive_list = full_hero_data.get('passiveSkills', [])
+        costume_passive_list = full_hero_data.get('costumeBonusPassiveSkillIds_details', []) # Assuming this is the resolved key name
+        
+        all_passives = passive_list + costume_passive_list
+        if all_passives:
+            skill_descriptions['passiveSkills'] = parsers['passive_skills'](all_passives, hero_final_stats, lang_db, game_db, hero_id, rules, parsers)
+            
+        processed_hero['skillDescriptions'] = skill_descriptions
         processed_heroes_data.append(processed_hero)
     
     print("\n" + "--- Finished processing all heroes. ---")
@@ -262,6 +273,7 @@ def main():
             'properties': parse_properties,
             'status_effects': parse_status_effects,
             'familiars': parse_familiars,
+            'passive_skills': parse_passive_skills, # Add the new parser
             'se_lang_subset': [key for key in language_db if key.startswith("specials.v2.statuseffect.")],
             'prop_lang_subset': [key for key in language_db if key.startswith("specials.v2.property.")]
         }
@@ -271,12 +283,10 @@ def main():
         final_hero_data, debug_data = process_all_heroes(language_db, game_db, hero_stats_db, rules, parsers)
         
         # Step 4: Write the output files
-        # --- Define new output paths ---
         final_csv_path = SCRIPT_DIR / "hero_skill_output.csv"
         debug_csv_path = SCRIPT_DIR / "hero_skill_output_debug.csv"
         debug_json_path = SCRIPT_DIR / "debug_hero_data.json"
 
-        # --- Call the new writer functions ---
         write_final_csv(final_hero_data, final_csv_path)
         write_debug_csv(final_hero_data, debug_csv_path)
         write_debug_json(debug_data, debug_json_path)
