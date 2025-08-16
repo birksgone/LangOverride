@@ -345,7 +345,6 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
 
         if not prop_data or not prop_id: continue
 
-        # --- Container Skill Detection Logic ---
         mana_speed_id = parsers.get("hero_mana_speed_id")
         property_type = prop_data.get("propertyType")
         
@@ -375,8 +374,6 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
             headings = container_headings.get(mana_speed_id, {})
 
             for i, sub_special_id_or_dict in enumerate(sub_specials_list):
-                
-                # --- FIX: Handle both string IDs and full dicts inside specialIds ---
                 sub_special_data = {}
                 if isinstance(sub_special_id_or_dict, dict):
                     sub_special_data = sub_special_id_or_dict
@@ -384,13 +381,13 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
                     sub_special_data = game_db['character_specials'].get(sub_special_id_or_dict, {})
                 
                 if not sub_special_data: continue
-                # --- End of FIX ---
 
                 heading_en = headings.get("en", [])[i] if i < len(headings.get("en", [])) else f"Level {i+1}:"
                 heading_ja = headings.get("ja", [])[i] if i < len(headings.get("ja", [])) else f"レベル {i+1}:"
-                nested_effects.append({"id": "heading", "en": heading_en, "ja": heading_ja, "description_en": heading_en, "description_ja": heading_ja})
                 
-                # Recursively parse the contents of the sub-special
+                # --- FIX: Removed redundant "en" and "ja" keys to prevent duplication ---
+                nested_effects.append({"id": "heading", "description_en": heading_en, "description_ja": heading_ja})
+                
                 if "directEffect" in sub_special_data:
                     nested_effects.append(parsers['direct_effect'](sub_special_data, hero_stats, lang_db, game_db, hero_id, rules, parsers))
                 if "properties" in sub_special_data:
@@ -406,7 +403,6 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
             })
             continue
 
-        # --- Regular Parsing Logic ---
         lang_id = rules.get("lang_overrides", {}).get("specific", {}).get(hero_id, {}).get(prop_id)
         if not lang_id: lang_id = rules.get("lang_overrides", {}).get("common", {}).get(prop_id)
         if not lang_id: lang_id = find_best_lang_id(prop_data, prop_lang_subset, parent_block=special_data)
