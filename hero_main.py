@@ -48,11 +48,10 @@ def _format_final_description(skill_descriptions: dict, lang: str) -> str:
     """
     output_lines = []
     
-    # Define the order of top-level skills
-    skill_order = ['directEffect', 'properties', 'statusEffects', 'familiars']
+    # --- MODIFIED: Added 'passiveSkills' to the processing order ---
+    skill_order = ['directEffect', 'properties', 'statusEffects', 'familiars', 'passiveSkills']
     
-    # A recursive inner function to handle the actual formatting
-    def process_level(items: list):
+    def process_level(items: list, is_passive=False):
         if not items:
             return
             
@@ -60,29 +59,37 @@ def _format_final_description(skill_descriptions: dict, lang: str) -> str:
             if not isinstance(item, dict):
                 continue
 
-            # Get the correct description key ('description_en' or just 'en')
+            # --- MODIFIED: Handle passive skill titles separately ---
+            if is_passive:
+                title_key = f'title_{lang}'
+                title = item.get(title_key, "").strip()
+                if title:
+                    output_lines.append(f"\n- {title} -")
+
             desc_key = f'description_{lang}' if f'description_{lang}' in item else lang
             description = item.get(desc_key, "").strip()
 
-            # Handle headings for container skills
             if item.get("id") == "heading":
                 output_lines.append(f"\n{description}")
             elif description:
-                # Add a bullet point for regular skills
                 output_lines.append(f"・{description}")
 
-            # Recurse into nested effects
             if 'nested_effects' in item and item['nested_effects']:
                 process_level(item['nested_effects'])
 
-    # Process top-level skills in the defined order
     for skill_type in skill_order:
         skill_data = skill_descriptions.get(skill_type)
         if not skill_data:
             continue
         
         items_to_process = skill_data if isinstance(skill_data, list) else [skill_data]
-        process_level(items_to_process)
+        
+        # --- MODIFIED: Pass a flag to handle passive skill formatting ---
+        is_passive_skill = (skill_type == 'passiveSkills')
+        if is_passive_skill and output_lines: # Add a separator before passive skills
+            output_lines.append("\n--- Passives ---")
+            
+        process_level(items_to_process, is_passive=is_passive_skill)
             
     return "\n".join(line for line in output_lines if line)
 
@@ -137,6 +144,11 @@ def write_debug_csv(processed_data: list, output_path: Path):
         familiars = skills.get('familiars', [])
         for i, f in enumerate(familiars[:2]):
             row.update({f'fam_{i+1}_{k}': v for k, v in f.items() if k != 'nested_effects'})
+
+        # --- MODIFIED: Add passive skills to the debug output ---
+        passives = skills.get('passiveSkills', [])
+        for i, ps in enumerate(passives[:3]): # Limit to 3 passive skills
+            row.update({f'passive_{i+1}_{k}': v for k, v in ps.items()})
 
         nested_prop_effects = [p.get('nested_effects', []) for p in props[:3]]
         for i, nested_list in enumerate(nested_prop_effects):
