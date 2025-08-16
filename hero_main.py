@@ -48,7 +48,6 @@ def _format_final_description(skill_descriptions: dict, lang: str) -> str:
     """
     output_lines = []
     
-    # --- MODIFIED: Added 'passiveSkills' to the processing order ---
     skill_order = ['directEffect', 'properties', 'statusEffects', 'familiars', 'passiveSkills']
     
     def process_level(items: list, is_passive=False):
@@ -59,11 +58,11 @@ def _format_final_description(skill_descriptions: dict, lang: str) -> str:
             if not isinstance(item, dict):
                 continue
 
-            # --- MODIFIED: Handle passive skill titles separately ---
             if is_passive:
                 title_key = f'title_{lang}'
                 title = item.get(title_key, "").strip()
                 if title:
+                    # Add a separator and the title for each passive
                     output_lines.append(f"\n- {title} -")
 
             desc_key = f'description_{lang}' if f'description_{lang}' in item else lang
@@ -72,10 +71,11 @@ def _format_final_description(skill_descriptions: dict, lang: str) -> str:
             if item.get("id") == "heading":
                 output_lines.append(f"\n{description}")
             elif description:
-                output_lines.append(f"・{description}")
+                prefix = "・" if not is_passive else ""
+                output_lines.append(f"{prefix}{description}")
 
             if 'nested_effects' in item and item['nested_effects']:
-                process_level(item['nested_effects'])
+                process_level(item['nested_effects'], is_passive=False)
 
     for skill_type in skill_order:
         skill_data = skill_descriptions.get(skill_type)
@@ -83,15 +83,14 @@ def _format_final_description(skill_descriptions: dict, lang: str) -> str:
             continue
         
         items_to_process = skill_data if isinstance(skill_data, list) else [skill_data]
-        
-        # --- MODIFIED: Pass a flag to handle passive skill formatting ---
         is_passive_skill = (skill_type == 'passiveSkills')
-        if is_passive_skill and output_lines: # Add a separator before passive skills
-            output_lines.append("\n--- Passives ---")
+        
+        if is_passive_skill and any(items_to_process) and output_lines:
+             output_lines.append("\n--- Passives ---")
             
         process_level(items_to_process, is_passive=is_passive_skill)
             
-    return "\n".join(line for line in output_lines if line)
+    return "\n".join(line for line in output_lines if line).strip()
 
 
 def write_final_csv(processed_data: list, output_path: Path):
@@ -119,7 +118,7 @@ def write_final_csv(processed_data: list, output_path: Path):
 
 
 def write_debug_csv(processed_data: list, output_path: Path):
-    """Writes the debug CSV with all data flattened into many columns."""
+    """Writes the debug CSV with structural and numerical data only (no long texts)."""
     print(f"\n--- Writing debug data to {output_path.name} ---")
     if not processed_data:
         print("Warning: No data to write.")
@@ -130,37 +129,39 @@ def write_debug_csv(processed_data: list, output_path: Path):
         row = {'hero_id': hero.get('id'), 'hero_name': hero.get('name', 'N/A')}
         skills = hero.get('skillDescriptions', {})
 
+        # --- Keep only ID, lang_id, and params ---
+        keys_to_keep = ['id', 'lang_id', 'params', 'collection_name']
+
         if de := skills.get('directEffect'):
-            row.update({f'de_{k}': v for k, v in de.items()})
+            row.update({f'de_{k}': v for k, v in de.items() if k in keys_to_keep})
 
         props = skills.get('properties', [])
         for i, p in enumerate(props[:3]):
-            row.update({f'prop_{i+1}_{k}': v for k, v in p.items() if k != 'nested_effects'})
+            row.update({f'prop_{i+1}_{k}': v for k, v in p.items() if k in keys_to_keep})
 
         effects = skills.get('statusEffects', [])
         for i, e in enumerate(effects[:5]):
-            row.update({f'se_{i+1}_{k}': v for k, v in e.items() if k != 'nested_effects'})
+            row.update({f'se_{i+1}_{k}': v for k, v in e.items() if k in keys_to_keep})
 
         familiars = skills.get('familiars', [])
         for i, f in enumerate(familiars[:2]):
-            row.update({f'fam_{i+1}_{k}': v for k, v in f.items() if k != 'nested_effects'})
-
-        # --- MODIFIED: Add passive skills to the debug output ---
+            row.update({f'fam_{i+1}_{k}': v for k, v in f.items() if k in keys_to_keep})
+            
         passives = skills.get('passiveSkills', [])
-        for i, ps in enumerate(passives[:3]): # Limit to 3 passive skills
-            row.update({f'passive_{i+1}_{k}': v for k, v in ps.items()})
+        for i, ps in enumerate(passives[:3]):
+            row.update({f'passive_{i+1}_{k}': v for k, v in ps.items() if k in keys_to_keep})
 
         nested_prop_effects = [p.get('nested_effects', []) for p in props[:3]]
         for i, nested_list in enumerate(nested_prop_effects):
             if not nested_list: continue
             for j, ne in enumerate(nested_list[:2]):
-                row.update({f'prop_{i+1}_nested_{j+1}_{k}': v for k, v in ne.items() if k != 'nested_effects'})
+                row.update({f'prop_{i+1}_nested_{j+1}_{k}': v for k, v in ne.items() if k in keys_to_keep})
         
         nested_se_effects = [e.get('nested_effects', []) for e in effects[:5]]
         for i, nested_list in enumerate(nested_se_effects):
             if not nested_list: continue
             for j, ne in enumerate(nested_list[:2]):
-                 row.update({f'se_{i+1}_nested_{j+1}_{k}': v for k, v in ne.items() if k != 'nested_effects'})
+                 row.update({f'se_{i+1}_nested_{j+1}_{k}': v for k, v in ne.items() if k in keys_to_keep})
         
         all_rows.append(row)
 
