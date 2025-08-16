@@ -295,7 +295,9 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dic
     return potential_matches[0]['key']
 
 def parse_direct_effect(special_data, hero_stats, lang_db, game_db, hero_id: str, rules: dict, parsers: dict):
-    effect_data = special_data.get("directEffect")
+    # This function can now be called for nested specials, so we check for the directEffect key
+    effect_data = special_data.get("directEffect") if isinstance(special_data, dict) else None
+    
     if not effect_data or not effect_data.get("effectType"):
         return {"id": "direct_effect_no_type", "lang_id": "N/A", "params": "{}", "en": "", "ja": ""}
     
@@ -310,13 +312,17 @@ def parse_direct_effect(special_data, hero_stats, lang_db, game_db, hero_id: str
         return {"id": "direct_effect_error", "lang_id": "N/A", "params": "{}", "en": "Error parsing", "ja": "解析エラー"}
 
     params = {}
-    base, inc, lvl = effect_data.get('powerMultiplierPerMil', 0), effect_data.get('powerMultiplierIncrementPerLevelPerMil', 0), special_data.get('maxLevel', 1)
+    # Use maxLevel from the sub-special if it exists, otherwise fallback to the main special's maxLevel
+    max_level = special_data.get("maxLevel", parsers.get("main_max_level", 8))
+    
+    base = effect_data.get('powerMultiplierPerMil', 0)
+    inc = effect_data.get('powerMultiplierIncrementPerLevelPerMil', 0)
     
     p_map = {"Damage":"HEALTH","Heal":"HEALTH","HealthBoost":"HEALTHBOOST","AddMana":"MANA"}
     placeholder = p_map.get(effect_type_str, "VALUE")
     
     if base > 0 or inc > 0:
-        total_per_mil = base + inc * (lvl - 1)
+        total_per_mil = base + inc * (max_level - 1)
         final_val = round(total_per_mil) if effect_data.get("hasFixedPower") else (round(total_per_mil/100) if effect_type_str=="AddMana" else round(total_per_mil/10))
         params[placeholder] = final_val
 
@@ -326,12 +332,12 @@ def parse_direct_effect(special_data, hero_stats, lang_db, game_db, hero_id: str
 def parse_properties(properties_list: list, special_data: dict, hero_stats: dict, lang_db: dict, game_db: dict, hero_id: str, rules: dict, parsers: dict) -> list:
     if not properties_list: return []
     parsed_items = []
-    max_level = special_data.get("maxLevel", 1)
+    main_max_level = special_data.get("maxLevel", 8)
+    parsers["main_max_level"] = main_max_level
     prop_lang_subset = parsers['prop_lang_subset']
     
     for prop_id_or_dict in properties_list:
         prop_data, prop_id = {}, None
-        
         if isinstance(prop_id_or_dict, dict):
             prop_data, prop_id = prop_id_or_dict, prop_id_or_dict.get('id')
         elif isinstance(prop_id_or_dict, str):
@@ -339,6 +345,68 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
 
         if not prop_data or not prop_id: continue
 
+        # --- Container Skill Detection Logic ---
+        mana_speed_id = parsers.get("hero_mana_speed_id")
+        property_type = prop_data.get("propertyType")
+        
+        container_types = {
+            "changing_tides": "RotatingSpecial",
+            "charge_ninja": "ChargedSpecial",
+            "charge_magic": "ChargedSpecial"
+        }
+
+        if mana_speed_id in container_types and property_type == container_types[mana_speed_id]:
+            container_lang_ids = {
+                "changing_tides": "specials.v2.property.evolving_special",
+                "charge_ninja": "specials.v2.property.chargedspecial.3",
+                "charge_magic": "specials.v2.property.chargedspecial.2"
+            }
+            container_headings = {
+                "changing_tides": {"en": ["1st:", "2nd:"], "ja": ["第1:", "第2:"]},
+                "charge_ninja": {"en": ["x1 Mana Charge:", "x2 Mana Charge:", "x3 Mana Charge:"], "ja": ["x1マナチャージ:", "x2マナチャージ:", "x3マナチャージ:"]},
+                "charge_magic": {"en": ["x1 Mana Charge:", "x2 Mana Charge:"], "ja": ["x1マナチャージ:", "x2マナチャージ:"]}
+            }
+
+            container_lang_id = container_lang_ids.get(mana_speed_id)
+            container_desc = generate_description(container_lang_id, {}, lang_db)
+            
+            nested_effects = []
+            sub_specials_list = prop_data.get("specialIds", [])
+            headings = container_headings.get(mana_speed_id, {})
+
+            for i, sub_special_id_or_dict in enumerate(sub_specials_list):
+                
+                # --- FIX: Handle both string IDs and full dicts inside specialIds ---
+                sub_special_data = {}
+                if isinstance(sub_special_id_or_dict, dict):
+                    sub_special_data = sub_special_id_or_dict
+                elif isinstance(sub_special_id_or_dict, str):
+                    sub_special_data = game_db['character_specials'].get(sub_special_id_or_dict, {})
+                
+                if not sub_special_data: continue
+                # --- End of FIX ---
+
+                heading_en = headings.get("en", [])[i] if i < len(headings.get("en", [])) else f"Level {i+1}:"
+                heading_ja = headings.get("ja", [])[i] if i < len(headings.get("ja", [])) else f"レベル {i+1}:"
+                nested_effects.append({"id": "heading", "en": heading_en, "ja": heading_ja, "description_en": heading_en, "description_ja": heading_ja})
+                
+                # Recursively parse the contents of the sub-special
+                if "directEffect" in sub_special_data:
+                    nested_effects.append(parsers['direct_effect'](sub_special_data, hero_stats, lang_db, game_db, hero_id, rules, parsers))
+                if "properties" in sub_special_data:
+                    nested_effects.extend(parsers['properties'](sub_special_data.get("properties", []), sub_special_data, hero_stats, lang_db, game_db, hero_id, rules, parsers))
+                if "statusEffects" in sub_special_data:
+                    nested_effects.extend(parsers['status_effects'](sub_special_data.get("statusEffects", []), sub_special_data, hero_stats, lang_db, game_db, hero_id, rules, parsers))
+
+            parsed_items.append({
+                "id": prop_id, "lang_id": container_lang_id,
+                "description_en": container_desc["en"], "description_ja": container_desc["ja"],
+                "tooltip_en": "", "tooltip_ja": "",
+                "params": "{}", "nested_effects": nested_effects
+            })
+            continue
+
+        # --- Regular Parsing Logic ---
         lang_id = rules.get("lang_overrides", {}).get("specific", {}).get(hero_id, {}).get(prop_id)
         if not lang_id: lang_id = rules.get("lang_overrides", {}).get("common", {}).get(prop_id)
         if not lang_id: lang_id = find_best_lang_id(prop_data, prop_lang_subset, parent_block=special_data)
@@ -358,12 +426,12 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         extra_template_text = lang_db.get(extra_lang_id, {}).get("en", "")
         all_placeholders = set(re.findall(r'\{(\w+)\}', main_template_text + extra_template_text))
 
-        search_context = {**prop_data, "maxLevel": max_level}
+        search_context = {**prop_data, "maxLevel": main_max_level}
 
         for p_holder in all_placeholders:
             if p_holder in lang_params: continue
             value, _ = find_and_calculate_value(
-                p_holder, search_context, max_level, hero_id, rules, 
+                p_holder, search_context, main_max_level, hero_id, rules, 
                 is_modifier=is_modifier_effect
             )
             if value is not None: lang_params[p_holder] = value

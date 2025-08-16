@@ -106,7 +106,6 @@ def write_debug_json(debug_data: dict, output_path: Path):
 
 # --- Main Processing Function ---
 def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, rules: dict, parsers: dict) -> (list, dict):
-    """The core processing loop that iterates through all heroes."""
     print("\n--- Starting Hero Processing ---")
     all_heroes = game_db.get('heroes', [])
     processed_heroes_data = []
@@ -128,6 +127,9 @@ def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, rules:
             processed_hero['skillDescriptions'] = {}
             processed_heroes_data.append(processed_hero)
             continue
+        
+        # --- NEW: Pass hero's manaSpeedId to the parsers dict for context ---
+        parsers["hero_mana_speed_id"] = hero.get("manaSpeedId")
             
         prop_list = special_data.get("properties", [])
         se_list = special_data.get("statusEffects", [])
