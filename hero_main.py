@@ -41,20 +41,87 @@ OUTPUT_CSV_PATH = SCRIPT_DIR / "hero_skill_output.csv"
 DEBUG_JSON_PATH = SCRIPT_DIR / "debug_hero_data.json"
 
 # --- CSV Output Function ---
-def write_results_to_csv(processed_data: list, output_path: Path):
-    """Writes the final parsed data into a structured CSV file."""
-    print(f"\n--- Writing results to {output_path} ---")
+def _format_final_description(skill_descriptions: dict, lang: str) -> str:
+    """
+    A helper function to recursively traverse skill data and format it into a single string.
+    """
+    output_lines = []
+    
+    # Define the order of top-level skills
+    skill_order = ['directEffect', 'properties', 'statusEffects', 'familiars']
+    
+    # A recursive inner function to handle the actual formatting
+    def process_level(items: list):
+        if not items:
+            return
+            
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+
+            # Get the correct description key ('description_en' or just 'en')
+            desc_key = f'description_{lang}' if f'description_{lang}' in item else lang
+            description = item.get(desc_key, "").strip()
+
+            # Handle headings for container skills
+            if item.get("id") == "heading":
+                output_lines.append(f"\n{description}")
+            elif description:
+                # Add a bullet point for regular skills
+                output_lines.append(f"・{description}")
+
+            # Recurse into nested effects
+            if 'nested_effects' in item and item['nested_effects']:
+                process_level(item['nested_effects'])
+
+    # Process top-level skills in the defined order
+    for skill_type in skill_order:
+        skill_data = skill_descriptions.get(skill_type)
+        if not skill_data:
+            continue
+        
+        items_to_process = skill_data if isinstance(skill_data, list) else [skill_data]
+        process_level(items_to_process)
+            
+    return "\n".join(line for line in output_lines if line)
+
+
+def write_final_csv(processed_data: list, output_path: Path):
+    """Writes the main, human-readable CSV with final formatted descriptions."""
+    print(f"\n--- Writing final results to {output_path.name} ---")
     if not processed_data:
-        print("Warning: No data to write to CSV.")
+        print("Warning: No data to write.")
+        return
+        
+    output_rows = []
+    for hero in processed_data:
+        output_rows.append({
+            "hero_id": hero.get('id'),
+            "hero_name": hero.get('name', 'N/A'),
+            "final_description_en": _format_final_description(hero.get('skillDescriptions', {}), 'en'),
+            "final_description_ja": _format_final_description(hero.get('skillDescriptions', {}), 'ja'),
+        })
+        
+    try:
+        df = pd.DataFrame(output_rows)
+        df.to_csv(output_path, index=False, encoding='utf-8-sig', quoting=csv.QUOTE_ALL, lineterminator='\n')
+        print(f"Successfully saved {len(df)} rows to {output_path.name}.")
+    except Exception as e:
+        print(f"FATAL: Failed to write final CSV: {e}")
+
+
+def write_debug_csv(processed_data: list, output_path: Path):
+    """Writes the debug CSV with all data flattened into many columns."""
+    print(f"\n--- Writing debug data to {output_path.name} ---")
+    if not processed_data:
+        print("Warning: No data to write.")
         return
     
     all_rows = []
-    
     for hero in processed_data:
         row = {'hero_id': hero.get('id'), 'hero_name': hero.get('name', 'N/A')}
         skills = hero.get('skillDescriptions', {})
 
-        # Add standard columns first
         if de := skills.get('directEffect'):
             row.update({f'de_{k}': v for k, v in de.items()})
 
@@ -70,7 +137,6 @@ def write_results_to_csv(processed_data: list, output_path: Path):
         for i, f in enumerate(familiars[:2]):
             row.update({f'fam_{i+1}_{k}': v for k, v in f.items() if k != 'nested_effects'})
 
-        # Append nested_effects columns at the end to maintain structure
         nested_prop_effects = [p.get('nested_effects', []) for p in props[:3]]
         for i, nested_list in enumerate(nested_prop_effects):
             if not nested_list: continue
@@ -88,21 +154,20 @@ def write_results_to_csv(processed_data: list, output_path: Path):
     try:
         df = pd.DataFrame(all_rows)
         df.to_csv(output_path, index=False, encoding='utf-8-sig', quoting=csv.QUOTE_ALL, lineterminator='\n')
-        print(f"Successfully saved {len(df)} rows to CSV.")
+        print(f"Successfully saved {len(df)} rows to {output_path.name}.")
     except Exception as e:
-        print(f"FATAL: Failed to write CSV: {e}")
+        print(f"FATAL: Failed to write debug CSV: {e}")
 
 
 def write_debug_json(debug_data: dict, output_path: Path):
     """Writes the fully resolved hero data to a JSON file for debugging."""
-    print(f"\n--- Writing debug data to {output_path} ---")
+    print(f"\n--- Writing debug data to {output_path.name} ---")
     try:
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(debug_data, f, indent=2, ensure_ascii=False)
         print(f"Successfully saved debug data for {len(debug_data)} heroes.")
     except Exception as e:
         print(f"FATAL: Failed to write debug JSON: {e}")
-
 
 # --- Main Processing Function ---
 def process_all_heroes(lang_db: dict, game_db: dict, hero_stats_db: dict, rules: dict, parsers: dict) -> (list, dict):
@@ -184,13 +249,13 @@ def analyze_unresolved_placeholders(final_hero_data: list):
 def main():
     """Main function to run the entire process."""
     try:
-        # Step 1: Load all data from disk using the data loader module
+        # Step 1: Load all data
         rules = load_rules_from_csvs(SCRIPT_DIR)
         language_db = load_languages()
         game_db = load_game_data()
         hero_stats_db = load_hero_stats_from_csv(DATA_DIR, HERO_STATS_CSV_PATTERN)
 
-        # Step 2: Prepare a dictionary of parser functions to pass around
+        # Step 2: Prepare parser functions
         print("\nOptimizing language data for search...")
         parsers = {
             'direct_effect': parse_direct_effect,
@@ -202,15 +267,21 @@ def main():
         }
         print(f" -> Found {len(parsers['se_lang_subset'])} status effect and {len(parsers['prop_lang_subset'])} property language keys.")
 
-        # Step 3: Process all heroes using the loaded data and parsers
+        # Step 3: Process all heroes
         final_hero_data, debug_data = process_all_heroes(language_db, game_db, hero_stats_db, rules, parsers)
         
         # Step 4: Write the output files
-        write_results_to_csv(final_hero_data, OUTPUT_CSV_PATH)
-        write_debug_json(debug_data, DEBUG_JSON_PATH)
+        # --- Define new output paths ---
+        final_csv_path = SCRIPT_DIR / "hero_skill_output.csv"
+        debug_csv_path = SCRIPT_DIR / "hero_skill_output_debug.csv"
+        debug_json_path = SCRIPT_DIR / "debug_hero_data.json"
+
+        # --- Call the new writer functions ---
+        write_final_csv(final_hero_data, final_csv_path)
+        write_debug_csv(final_hero_data, debug_csv_path)
+        write_debug_json(debug_data, debug_json_path)
         
-        print(f"\nProcess complete. Output saved to {OUTPUT_CSV_PATH}")
-        print(f"Debug data saved to {DEBUG_JSON_PATH}")
+        print(f"\nProcess complete. All files saved.")
 
         # Step 5: Analyze and report any remaining issues
         analyze_unresolved_placeholders(final_hero_data)
