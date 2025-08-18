@@ -587,34 +587,31 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
     parsed_items = []
     main_max_level = special_data.get("maxLevel", 8)
     
-    FAMILIAR_TYPE_TO_PREFIX = {
-        "Minion": "minion", "BigMinion": "bigminion",
-        "Parasite": "parasite", "BigParasite": "bigparasite"
-    }
+    all_familiar_lang_ids = [k for k in lang_db if k.startswith("specials.v2.")]
 
     for familiar_instance in familiars_list:
         familiar_id = familiar_instance.get("id")
         if not familiar_id: continue
 
+        primary_candidates = [k for k in all_familiar_lang_ids if familiar_id in k]
+
         lang_id = None
-        familiar_type_str = familiar_instance.get("familiarType")
-        prefix = FAMILIAR_TYPE_TO_PREFIX.get(familiar_type_str)
-        
-        if prefix:
-            familiar_lang_subset = [k for k in lang_db if k.startswith(f"specials.v2.{prefix}.")]
-            lang_id = find_best_lang_id(familiar_instance, familiar_lang_subset, parsers)
+        if primary_candidates:
+            lang_id = find_best_lang_id(familiar_instance, primary_candidates, parsers)
+        else:
+            lang_id = find_best_lang_id(familiar_instance, all_familiar_lang_ids, parsers)
 
         if not lang_id:
-            # Add comprehensive debug info for logging
-            log_entry = {
-                "reason": "Top-level lang_id search failed.",
-                "familiar_id": familiar_id,
-                "familiar_instance": familiar_instance,
-            }
-            parsers["familiar_debug_log"].append(log_entry)
-            parsed_items.append({ "id": familiar_id, "lang_id": "SEARCH_FAILED", "description_en": f"Failed for familiar {familiar_id}", "nested_effects": []})
+            parsed_items.append({
+                "id": familiar_id,
+                "lang_id": "SEARCH_FAILED",
+                "description_en": f"Failed for familiar {familiar_id}",
+                "description_ja": f"Failed for familiar {familiar_id}",
+                "params": "{}",
+                "nested_effects": []
+            })
             continue
-
+            
         lang_params = {}
         template_text = lang_db.get(lang_id, {}).get("en", "")
         placeholders = set(re.findall(r'\{(\w+)\}', template_text))
@@ -636,9 +633,12 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
             nested_effects = _parse_familiar_effects(familiar_instance, lang_db, hero_stats, game_db, hero_id, rules, parsers)
 
         parsed_items.append({
-            "id": familiar_id, "lang_id": lang_id,
-            "description_en": main_desc['en'], "description_ja": main_desc['ja'],
-            "params": json.dumps(lang_params), "nested_effects": nested_effects
+            "id": familiar_id,
+            "lang_id": lang_id,
+            "description_en": main_desc['en'],
+            "description_ja": main_desc['ja'],
+            "params": json.dumps(lang_params),
+            "nested_effects": nested_effects
         })
     return parsed_items
 
@@ -649,28 +649,36 @@ def _parse_familiar_effects(familiar_instance: dict, lang_db: dict, hero_stats: 
     parsed_effects = []
     main_max_level = parsers.get("main_max_level", 8)
     familiar_id = familiar_instance.get("id", "")
-    familiar_type = familiar_instance.get("familiarType", "").lower()
     
+    all_effect_lang_ids = [k for k in lang_db if familiar_id in k and (k.startswith("specials.v2.") or k.startswith("familiar.statuseffect."))]
+
     for effect_data in effects_list:
         effect_id = effect_data.get("id")
         if not effect_id: continue
         
-        prefix1 = f"specials.v2.{familiar_type}.{familiar_id}"
-        prefix2 = "familiar.statuseffect"
-        effect_lang_subset = [k for k in lang_db if k.startswith(prefix1) or k.startswith(prefix2)]
-        
         context_block = {**familiar_instance, **effect_data}
         
-        lang_id = find_best_lang_id(context_block, effect_lang_subset, parsers)
+        effect_type_keyword = effect_data.get('effectType', "").lower()
+        
+        primary_candidates = [
+            k for k in all_effect_lang_ids 
+            if (effect_type_keyword and effect_type_keyword in k) or (effect_id and effect_id in k)
+        ]
+        
+        lang_id = None
+        if primary_candidates:
+            lang_id = find_best_lang_id(context_block, primary_candidates, parsers)
+        else:
+            lang_id = find_best_lang_id(context_block, all_effect_lang_ids, parsers)
+
         if not lang_id:
-            log_entry = {
-                "reason": "Nested effect lang_id search failed.",
-                "familiar_id": familiar_id,
-                "effect_id": effect_id,
-                "context_block": context_block,
-            }
-            parsers["familiar_debug_log"].append(log_entry)
-            parsed_effects.append({ "id": effect_id, "lang_id": "SEARCH_FAILED", "description_en": f"Failed for familiar effect {effect_id}", "en": f"Failed for familiar effect {effect_id}"})
+            parsed_effects.append({
+                "id": effect_id, "lang_id": "SEARCH_FAILED",
+                "description_en": f"Failed for familiar effect {effect_id}",
+                "en": f"Failed for familiar effect {effect_id}", # Keep 'en' for compatibility with _format_final_description
+                "ja": f"Failed for familiar effect {effect_id}",
+                "params": "{}",
+            })
             continue
 
         lang_params = {}
@@ -688,7 +696,8 @@ def _parse_familiar_effects(familiar_instance: dict, lang_db: dict, hero_stats: 
         descriptions = generate_description(lang_id, formatted_params, lang_db)
         
         parsed_effects.append({
-            "id": effect_id, "lang_id": lang_id,
+            "id": effect_id,
+            "lang_id": lang_id,
             "params": json.dumps(lang_params),
             **descriptions
         })
