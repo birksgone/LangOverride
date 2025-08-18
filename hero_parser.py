@@ -526,11 +526,20 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
     se_lang_subset = parsers['se_lang_subset']
     
     for effect_instance in status_effects_list:
+        # --- MODIFIED: Rely on fully resolved data from Phase 1 ---
+        # The 'effect_instance' dictionary passed from the fully resolved hero data
+        # should already contain all the necessary details. We no longer need to
+        # look it up again in the original game_db.
+        
+        # Safety check to ensure we are working with a dictionary
+        if not isinstance(effect_instance, dict):
+            continue
+            
         effect_id = effect_instance.get("id")
         if not effect_id: continue
 
-        effect_details = game_db['status_effects'].get(effect_id, {})
-        combined_details = {**effect_details, **effect_instance}
+        # The 'combined_details' is now simply the 'effect_instance' itself.
+        combined_details = effect_instance
         
         lang_id = rules.get("lang_overrides", {}).get("specific", {}).get(hero_id, {}).get(effect_id)
         if not lang_id: lang_id = rules.get("lang_overrides", {}).get("common", {}).get(effect_id)
