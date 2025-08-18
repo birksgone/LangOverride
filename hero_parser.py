@@ -110,7 +110,6 @@ def get_hero_final_stats(hero_id: str, hero_stats_db: dict) -> dict:
 def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, hero_id: str, rules: dict, is_modifier: bool = False, ignore_keywords: list = None) -> (any, str):
     p_holder_upper = p_holder.upper()
     
-    # --- Step 1: Exception Rule Check ---
     rule = rules.get("hero_rules", {}).get("specific", {}).get(hero_id, {}).get(p_holder_upper)
     if not rule:
         rule = rules.get("hero_rules", {}).get("common", {}).get(p_holder_upper)
@@ -136,7 +135,6 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, he
                     return int(value), f"Exception Rule: {found_key}"
         return None, f"Exception rule key '{key_to_find}' not found or ambiguous"
 
-    # --- Step 2: Automatic Detection ---
     if not isinstance(data_block, dict): return None, None
     flat_data = flatten_json(data_block)
 
@@ -303,7 +301,8 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parsers: dict, pa
             "familiar_instance": data_block,
             "top_candidates": [{'score': f"{m['score']:.2f}", 'key': m['key']} for m in potential_matches[:5]]
         }
-        parsers["familiar_debug_log_buffer"].append(log_entry)
+        # FIX: Use the correct list name initialized in hero_main.py
+        parsers["familiar_debug_log"].append(log_entry)
 
     return potential_matches[0]['key']
 
@@ -594,7 +593,6 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
         if not familiar_id: continue
 
         primary_candidates = [k for k in all_familiar_lang_ids if familiar_id in k]
-
         lang_id = None
         if primary_candidates:
             lang_id = find_best_lang_id(familiar_instance, primary_candidates, parsers)
@@ -602,21 +600,49 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
             lang_id = find_best_lang_id(familiar_instance, all_familiar_lang_ids, parsers)
 
         if not lang_id:
-            parsed_items.append({
-                "id": familiar_id,
-                "lang_id": "SEARCH_FAILED",
-                "description_en": f"Failed for familiar {familiar_id}",
-                "description_ja": f"Failed for familiar {familiar_id}",
-                "params": "{}",
-                "nested_effects": []
-            })
+            parsed_items.append({ "id": familiar_id, "lang_id": "SEARCH_FAILED", "description_en": f"Failed for familiar {familiar_id}", "nested_effects": []})
             continue
-            
+
         lang_params = {}
         template_text = lang_db.get(lang_id, {}).get("en", "")
         placeholders = set(re.findall(r'\{(\w+)\}', template_text))
 
-        for p_holder in placeholders:
+        # --- NEW: Logging logic for parameter resolution ---
+        log_entry = {'hero_id': hero_id, 'familiar_id': familiar_id}
+
+        # Hardcoded logic for FAMILIARHEALTHPERCENT
+        health_val = familiar_instance.get('healthPerMil', 0)
+        inc_val_health = familiar_instance.get('healthPerLevelPerMil', 0)
+        final_health = (health_val + inc_val_health * (main_max_level - 1)) / 10.0
+        lang_params['FAMILIARHEALTHPERCENT'] = final_health
+        log_entry['raw_healthPerMil'] = health_val
+        log_entry['calculated_health'] = final_health
+        
+        # Hardcoded logic for FAMILIARATTACK
+        attack_found = False
+        if effects := familiar_instance.get('effects'):
+            for effect in effects:
+                if isinstance(effect, dict) and 'attackPercentPerMil' in effect:
+                    attack_val = effect.get('attackPercentPerMil', 0)
+                    inc_val_attack = 0
+                    if "parasite" in familiar_instance.get("familiarType", "").lower():
+                        inc_val_attack = effect.get('attackPercentIncrementPerLevelPerMil', 0)
+                    final_attack = (attack_val + inc_val_attack * (main_max_level - 1)) / 10.0
+                    lang_params['FAMILIARATTACK'] = final_attack
+                    log_entry['raw_attackPercentPerMil'] = attack_val
+                    log_entry['raw_attackIncrement'] = inc_val_attack
+                    log_entry['calculated_attack'] = final_attack
+                    attack_found = True
+                    break
+        
+        if not attack_found:
+            log_entry['raw_attackPercentPerMil'] = 'NOT_FOUND'
+
+        parsers["familiar_parameter_log"].append(log_entry)
+        # --- End of logging logic ---
+        
+        other_placeholders = placeholders - set(lang_params.keys())
+        for p_holder in other_placeholders:
             value, _ = find_and_calculate_value(
                 p_holder, familiar_instance, main_max_level, hero_id, rules,
                 is_modifier=False,
@@ -633,12 +659,9 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
             nested_effects = _parse_familiar_effects(familiar_instance, lang_db, hero_stats, game_db, hero_id, rules, parsers)
 
         parsed_items.append({
-            "id": familiar_id,
-            "lang_id": lang_id,
-            "description_en": main_desc['en'],
-            "description_ja": main_desc['ja'],
-            "params": json.dumps(lang_params),
-            "nested_effects": nested_effects
+            "id": familiar_id, "lang_id": lang_id,
+            "description_en": main_desc['en'], "description_ja": main_desc['ja'],
+            "params": json.dumps(lang_params), "nested_effects": nested_effects
         })
     return parsed_items
 

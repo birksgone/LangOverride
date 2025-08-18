@@ -214,6 +214,7 @@ def phase_two_parse_skills(debug_data: dict, lang_db: dict, game_db: dict, hero_
     parsers['warnings_list'] = []
     parsers['unique_warnings_set'] = set()
     parsers['familiar_debug_log'] = []
+    parsers['familiar_parameter_log'] = [] # <-- NEW: Initialize list for parameter logs
 
     total_heroes = len(debug_data)
     for i, (hero_id, full_hero_data) in enumerate(debug_data.items()):
@@ -226,8 +227,11 @@ def phase_two_parse_skills(debug_data: dict, lang_db: dict, game_db: dict, hero_
         skill_descriptions = {}
         special_data_for_hero = None
         
-        special_id = full_hero_data.get("specialId")
-        if special_id and (special_data := game_db['character_specials'].get(special_id)):
+        # --- MODIFIED: Use the fully resolved special data from the hero object ---
+        # Instead of looking up the special_id in the original game_db,
+        # we now use the 'specialId_details' which was resolved in Phase 1.
+        # This ensures all parsers receive the complete, nested data.
+        if special_data := full_hero_data.get("specialId_details"):
             special_data_for_hero = special_data
             parsers["hero_mana_speed_id"] = full_hero_data.get("manaSpeedId")
             
@@ -299,10 +303,8 @@ def main():
         game_db = load_game_data()
         hero_stats_db = load_hero_stats_from_csv(DATA_DIR, HERO_STATS_CSV_PATTERN)
 
-        # --- Phase 1: Create the unified, trustworthy data source ---
         phase_one_integrate_data(game_db, DEBUG_JSON_PATH)
 
-        # --- Phase 2: Parse skills using only the unified data source ---
         print("\nReloading unified data from file to ensure consistency...")
         with open(DEBUG_JSON_PATH, 'r', encoding='utf-8') as f:
             debug_data_from_file = json.load(f)
@@ -317,20 +319,21 @@ def main():
         
         final_hero_data = phase_two_parse_skills(debug_data_from_file, language_db, game_db, hero_stats_db, rules, parsers)
         
-        # --- Step 3: Write all output files ---
         write_final_csv(final_hero_data, FINAL_CSV_PATH)
         write_debug_csv(final_hero_data, DEBUG_CSV_PATH)
         
-        # --- Step 4: Final Reporting ---
-        familiar_log = parsers.get('familiar_debug_log', [])
-        if familiar_log:
-            print(f"\n--- 📝 Found {len(familiar_log)} familiar parsing issues. ---")
-            with open(FAMILIAR_LOG_PATH, 'w', encoding='utf-8') as f:
-                for entry in familiar_log:
-                    f.write(pformat(entry, indent=2))
-                    f.write("\n" + "="*80 + "\n")
-            print(f"Details saved to {FAMILIAR_LOG_PATH.name}")
-
+        # --- NEW: Write the new parameter log to a CSV file ---
+        param_log = parsers.get('familiar_parameter_log', [])
+        if param_log:
+            param_log_path = SCRIPT_DIR / "familiar_parameter_log.csv"
+            print(f"\n--- 📝 Writing familiar parameter log... ---")
+            try:
+                param_df = pd.DataFrame(param_log)
+                param_df.to_csv(param_log_path, index=False, encoding='utf-8-sig')
+                print(f"Details saved to {param_log_path.name}")
+            except Exception as e:
+                print(f"Warning: Could not write familiar parameter log. Error: {e}")
+        
         warnings_list = parsers.get('warnings_list', [])
         if warnings_list:
             unique_warnings = parsers.get('unique_warnings_set', set())
