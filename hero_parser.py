@@ -392,6 +392,7 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         if isinstance(prop_id_or_dict, dict):
             prop_data, prop_id = prop_id_or_dict, prop_id_or_dict.get('id')
         elif isinstance(prop_id_or_dict, str):
+            # This case should ideally not happen if data is fully resolved, but kept for safety.
             prop_id, prop_data = prop_id_or_dict, game_db['special_properties'].get(prop_id_or_dict, {})
 
         if not prop_data or not prop_id: continue
@@ -424,14 +425,14 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
             sub_specials_list = prop_data.get("specialIds", [])
             headings = container_headings.get(mana_speed_id, {})
 
-            for i, sub_special_id_or_dict in enumerate(sub_specials_list):
-                sub_special_data = {}
-                if isinstance(sub_special_id_or_dict, dict):
-                    sub_special_data = sub_special_id_or_dict
-                elif isinstance(sub_special_id_or_dict, str):
-                    sub_special_data = game_db['character_specials'].get(sub_special_id_or_dict, {})
+            # --- MODIFIED: Rely on fully resolved data from Phase 1 ---
+            # The sub_specials_list now contains fully resolved dictionaries, not just string IDs.
+            # We no longer need to look up the sub-special data in the old game_db.
+            for i, sub_special_data in enumerate(sub_specials_list):
                 
-                if not sub_special_data: continue
+                # Safety check: Ensure the item is a valid dictionary before processing.
+                if not isinstance(sub_special_data, dict) or not sub_special_data:
+                    continue
 
                 heading_en = headings.get("en", [])[i] if i < len(headings.get("en", [])) else f"Level {i+1}:"
                 heading_ja = headings.get("ja", [])[i] if i < len(headings.get("ja", [])) else f"レベル {i+1}:"
