@@ -226,15 +226,13 @@ def _collect_keywords_recursively(data_block, depth=0, max_depth=2) -> list:
             
     return keywords
 
-def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dict = None) -> str:
-    # --- Step 1: Direct Construction (Unchanged) ---
+def find_best_lang_id(data_block: dict, lang_key_subset: list, parsers: dict, parent_block: dict = None) -> str:
     if 'statusEffect' in data_block:
         buff_map = {
             "MinorDebuff": "minor", "MajorDebuff": "major",
             "MinorBuff": "minor", "MajorBuff": "major",
             "PermanentDebuff": "permanent", "PermanentBuff": "permanent"
         }
-        # ... (The direct construction logic is the same as before, so it's condensed here)
         intensity = buff_map.get(data_block.get('buff'))
         status_effect_val = data_block.get('statusEffect')
         effect_name = status_effect_val.lower() if isinstance(status_effect_val, str) else None
@@ -246,14 +244,9 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dic
             constructed_id = f"specials.v2.statuseffect.{intensity}.{effect_name}.{target}.{side}"
             if constructed_id in lang_key_subset: return constructed_id
             
-    # --- Step 2: Weighted Scoring using Deep Keyword Collection ---
-    
-    # Collect all keywords from the block and its children, with depth information.
-    # We also include the parent block to catch contextual keywords.
     contextual_block = {**data_block, "parent": parent_block}
     all_keywords_with_depth = _collect_keywords_recursively(contextual_block, depth=0)
     
-    # Deduplicate while preserving the keyword with the shallowest depth
     seen_keywords = {}
     for kw, depth in all_keywords_with_depth:
         if kw not in seen_keywords or depth < seen_keywords[kw]:
@@ -264,13 +257,10 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dic
         score = 0
         lang_key_parts = lang_key.lower().split('.')
         
-        # Calculate score based on matched keywords and their depth
         for kw, depth in seen_keywords.items():
             if kw in lang_key_parts:
-                # Keywords found at shallower depths get exponentially higher scores
                 score += 100 / (2 ** depth)
 
-        # Add a small bonus for certain structural keywords, if they exist
         if 'fixedpower' in lang_key_parts and 'hasfixedpower' in seen_keywords:
             score += 3
         if 'decrement' in lang_key_parts and any(isinstance(v, (int, float)) and v < 0 for v in data_block.values()):
@@ -279,14 +269,57 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parent_block: dic
         if score > 0:
             potential_matches.append({'key': lang_key, 'score': score})
     
-    # --- Step 3: Final Decision ---
     if not potential_matches:
         primary_keyword = (data_block.get('propertyType') or data_block.get('statusEffect') or 'N/A')
-        print(f"\n  - Warning: Could not find lang_id for skill '{data_block.get('id', 'UNKNOWN')}' (type: {primary_keyword})")
+        # --- MODIFIED: Instead of printing, add the warning to the list ---
+        warning_message = f"Could not find lang_id for skill '{data_block.get('id', 'UNKNOWN')}' (type: {primary_keyword})"
+        # Add to the list only if it's not already there to avoid duplicates per hero
+        if "warnings_list" in parsers and warning_message not in parsers.get("unique_warnings_set", set()):
+             parsers["warnings_list"].append(warning_message)
+             parsers["unique_warnings_set"].add(warning_message)
         return None
 
     potential_matches.sort(key=lambda x: (-x['score'], len(x['key'])))
     return potential_matches[0]['key']
+
+def parse_clear_buffs(special_data: dict, lang_db: dict, parsers: dict) -> dict:
+    """Parses buff removal effects defined at the top level of a special."""
+    if "buffToRemove" not in special_data:
+        return None
+    
+    try:
+        buff_to_remove = special_data.get("buffToRemove", "").lower()
+        target_type = special_data.get("buffToRemoveTargetType", "all").lower()
+        
+        # --- Smarter sideAffected logic based on your feedback ---
+        side_affected = special_data.get("buffToRemoveSideAffected", "").lower()
+        if not side_affected:
+            side_affected = special_data.get("sideAffected", "").lower()
+        if not side_affected:
+            side_affected = special_data.get("directEffect", {}).get("sideAffected", "enemies").lower()
+        # ---
+        
+        lang_id = f"specials.v2.clearbuffs.{buff_to_remove}.{target_type}.{side_affected}"
+        
+        if lang_id + ".latest" in lang_db:
+            lang_id += ".latest"
+
+        description = generate_description(lang_id, {}, lang_db)
+        
+        # Return a standard parser result format
+        return {
+            "id": "clear_buffs_effect",
+            "lang_id": lang_id,
+            "params": "{}",
+            "nested_effects": [],
+            **description
+        }
+    except Exception as e:
+        warning_message = f"Error parsing clear_buffs: {e}"
+        if "warnings_list" in parsers and warning_message not in parsers["warnings_list"]:
+             parsers["warnings_list"].append(warning_message)
+        return None
+
 
 def parse_direct_effect(special_data, hero_stats, lang_db, game_db, hero_id: str, rules: dict, parsers: dict):
     # This function can now be called for nested specials, so we check for the directEffect key
@@ -378,8 +411,6 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
 
                 heading_en = headings.get("en", [])[i] if i < len(headings.get("en", [])) else f"Level {i+1}:"
                 heading_ja = headings.get("ja", [])[i] if i < len(headings.get("ja", [])) else f"レベル {i+1}:"
-                
-                # --- FIX: Removed redundant "en" and "ja" keys to prevent duplication ---
                 nested_effects.append({"id": "heading", "description_en": heading_en, "description_ja": heading_ja})
                 
                 if "directEffect" in sub_special_data:
@@ -399,7 +430,7 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
 
         lang_id = rules.get("lang_overrides", {}).get("specific", {}).get(hero_id, {}).get(prop_id)
         if not lang_id: lang_id = rules.get("lang_overrides", {}).get("common", {}).get(prop_id)
-        if not lang_id: lang_id = find_best_lang_id(prop_data, prop_lang_subset, parent_block=special_data)
+        if not lang_id: lang_id = find_best_lang_id(prop_data, prop_lang_subset, parsers, parent_block=special_data)
 
         if not lang_id:
             parsed_items.append({
@@ -466,7 +497,7 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
 def parse_status_effects(status_effects_list: list, special_data: dict, hero_stats: dict, lang_db: dict, game_db: dict, hero_id: str, rules: dict, parsers: dict) -> list:
     if not status_effects_list: return []
     parsed_items = []
-    max_level = special_data.get("maxLevel", 1)
+    main_max_level = special_data.get("maxLevel", 8)
     se_lang_subset = parsers['se_lang_subset']
     
     for effect_instance in status_effects_list:
@@ -478,7 +509,7 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         
         lang_id = rules.get("lang_overrides", {}).get("specific", {}).get(hero_id, {}).get(effect_id)
         if not lang_id: lang_id = rules.get("lang_overrides", {}).get("common", {}).get(effect_id)
-        if not lang_id: lang_id = find_best_lang_id(combined_details, se_lang_subset, parent_block=special_data)
+        if not lang_id: lang_id = find_best_lang_id(combined_details, se_lang_subset, parsers, parent_block=special_data)
 
         if not lang_id:
             parsed_items.append({
@@ -491,7 +522,7 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         lang_params, is_modifier_effect = {}, 'modifier' in combined_details.get('statusEffect', '').lower()
         if (turns := combined_details.get("turns", 0)) > 0: lang_params["TURNS"] = turns
         
-        search_context = {**combined_details, "maxLevel": max_level}
+        search_context = {**combined_details, "maxLevel": main_max_level}
         
         template_text_en = lang_db.get(lang_id, {}).get("en", "")
         placeholders = set(re.findall(r'\{(\w+)\}', template_text_en))
@@ -499,7 +530,7 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         for p_holder in placeholders:
             if p_holder in lang_params: continue
             value, found_key = find_and_calculate_value(
-                p_holder, search_context, max_level, hero_id, rules,
+                p_holder, search_context, main_max_level, hero_id, rules,
                 is_modifier=is_modifier_effect
             )
             
@@ -583,12 +614,10 @@ def parse_passive_skills(passive_skills_list: list, hero_stats: dict, lang_db: d
 
         # --- Your Algorithm, Step 1 & 2: Find the definitive TITLE ID ---
         title_lang_id = None
-        # First, roughly filter candidates by prefix
         prefix = f"herocard.passive_skill.title.{skill_type}"
         title_candidates = [k for k in title_lang_subset if k.startswith(prefix)]
         
         if title_candidates:
-            # Then, collect deep keywords from the skill data to refine the search
             skill_keywords_with_depth = _collect_keywords_recursively(skill_data)
             skill_keywords = {kw for kw, depth in skill_keywords_with_depth}
 
@@ -596,7 +625,6 @@ def parse_passive_skills(passive_skills_list: list, hero_stats: dict, lang_db: d
             for candidate in title_candidates:
                 score = 0
                 parts = candidate.split('.')
-                # Score based on how many of the skill's deep keywords are in the lang_id
                 for kw in skill_keywords:
                     if kw in parts:
                         score += 1
@@ -609,12 +637,10 @@ def parse_passive_skills(passive_skills_list: list, hero_stats: dict, lang_db: d
         # --- Your Algorithm, Step 3 & 4: Find the definitive DESCRIPTION ID ---
         desc_lang_id = None
         if title_lang_id:
-            # Try to find a direct match by replacing .title. with .description.
             ideal_desc_id = title_lang_id.replace('.title.', '.description.', 1)
             if ideal_desc_id in lang_db:
                 desc_lang_id = ideal_desc_id
             else:
-                # If no direct match, fallback to prefix search and refinement
                 prefix = f"herocard.passive_skill.description.{skill_type}"
                 desc_candidates = [k for k in desc_lang_subset if k.startswith(prefix)]
                 
@@ -622,20 +648,15 @@ def parse_passive_skills(passive_skills_list: list, hero_stats: dict, lang_db: d
                     skill_keywords_with_depth = _collect_keywords_recursively(skill_data)
                     skill_keywords = {kw for kw, depth in skill_keywords_with_depth}
                     
-                    # Refine by keeping only candidates that match the skill's keywords
                     refined_candidates = []
                     for candidate in desc_candidates:
                         parts = candidate.split('.')
-                        is_valid = True
-                        # Exclusion logic: if a keyword from the lang_id is NOT in the skill data, it's a bad match
-                        # (This is complex, so we'll use a simpler inclusion logic for now)
                         if any(kw in parts for kw in skill_keywords):
                              refined_candidates.append(candidate)
                     
                     if refined_candidates:
-                        # From the refined list, choose the shortest one
                          desc_lang_id = min(refined_candidates, key=len)
-                    elif desc_candidates: # If refinement yields nothing, use the shortest from the original candidates
+                    elif desc_candidates:
                          desc_lang_id = min(desc_candidates, key=len)
 
 
@@ -648,7 +669,12 @@ def parse_passive_skills(passive_skills_list: list, hero_stats: dict, lang_db: d
             lang_params = {}
             search_context = {**skill_data, "maxLevel": main_max_level}
             for p_holder in all_placeholders:
-                value, found_key = find_and_calculate_value(p_holder, search_context, main_max_level, hero_id, rules)
+                # --- THIS IS THE ONLY FIX NEEDED FOR YOUR ORIGINAL LOGIC ---
+                # We are now passing the 'is_modifier' flag correctly.
+                value, found_key = find_and_calculate_value(
+                    p_holder, search_context, main_max_level, hero_id, rules, 
+                    is_modifier=False # Passives are generally not modifiers
+                )
                 if value is not None:
                     if p_holder.upper() == "DAMAGE" and "permil" in (found_key or "").lower():
                          lang_params[p_holder] = math.floor((value / 100) * hero_stats.get("max_attack", 0))
@@ -665,8 +691,11 @@ def parse_passive_skills(passive_skills_list: list, hero_stats: dict, lang_db: d
                 "description_en": desc_texts.get("en", ""), "description_ja": desc_texts.get("ja", ""),
                 "params": json.dumps(lang_params)
             })
-        else: # If the new algorithm failed, log it.
-            print(f"\n  - Warning: Could not resolve passive lang_ids for skill '{skill_id}'")
+        else:
+            warning_message = f"Could not resolve passive lang_ids for skill '{skill_id}'"
+            if "warnings_list" in parsers and warning_message not in parsers.get("unique_warnings_set", set()):
+                parsers["warnings_list"].append(warning_message)
+                parsers["unique_warnings_set"].add(warning_message)
             parsed_items.append({ "id": skill_id, "title_en": f"FAILED: {skill_id}", "description_en": "lang_id resolution failed."})
 
     return parsed_items
