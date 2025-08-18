@@ -117,28 +117,21 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, he
     if rule:
         calc_method = rule.get("calc")
         if calc_method == "fixed":
-            # Ensure fixed values from CSV are treated as numbers if possible
             value_str = rule.get("value")
-            try:
-                return int(value_str)
+            try: return int(value_str), "Fixed Rule"
             except (ValueError, TypeError):
-                try:
-                    return float(value_str)
-                except (ValueError, TypeError):
-                    return value_str, "Fixed Rule" # Fallback to string if not a number
+                try: return float(value_str), "Fixed Rule"
+                except (ValueError, TypeError): return value_str, "Fixed Rule"
 
         key_to_find = rule.get("key")
         if key_to_find:
             flat_data = flatten_json(data_block)
             matching_keys = [k for k in flat_data if k.endswith(key_to_find)]
-            
             if len(matching_keys) == 1:
                 found_key = matching_keys[0]
                 value = flat_data[found_key]
                 if isinstance(value, (int, float)):
-                    # Exception rules currently do not support increment calculations, they return the direct value.
-                    if 'permil' in found_key.lower():
-                        return value / 10, f"Exception Rule: {found_key}"
+                    if 'permil' in found_key.lower(): return value / 10, f"Exception Rule: {found_key}"
                     return int(value), f"Exception Rule: {found_key}"
         return None, f"Exception rule key '{key_to_find}' not found or ambiguous"
 
@@ -151,21 +144,17 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, he
 
     candidates = []
     for key, value in flat_data.items():
-        if not isinstance(value, (int, float)):
-            continue
+        if not isinstance(value, (int, float)): continue
         key_lower = key.lower()
         score = 0
         matched_keywords = sum(1 for kw in ph_keywords if kw in key_lower)
         if matched_keywords > 0:
             score += matched_keywords * 10
-            if 'power' in key_lower or 'modifier' in key_lower:
-                score += 5
-            if 'permil' in key_lower:
-                score += 3
+            if 'power' in key_lower or 'modifier' in key_lower: score += 5
+            if 'permil' in key_lower: score += 3
             candidates.append({'key': key, 'score': score})
             
-    if not candidates:
-        return None, None
+    if not candidates: return None, None
         
     best_candidate = sorted(candidates, key=lambda x: (-x['score'], len(x['key'])))[0]
     found_key = best_candidate['key']
@@ -184,15 +173,20 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, he
             break
             
     inc_val = flat_data.get(inc_key, 0)
-    
-    # --- FIX: Ensure inc_val is a number before calculation ---
     if not isinstance(inc_val, (int, float)):
         inc_val = 0
     
-    if is_modifier:
+    # --- FIX: Smarter modifier detection ---
+    # A value is considered a modifier if the parser flag is set OR
+    # if the found key's name itself contains "modifier".
+    is_truly_modifier = is_modifier or 'modifier' in found_key.lower()
+    
+    if is_truly_modifier:
+        # Modifier-specific calculation (e.g., 1040 -> 4.0 -> "+4%")
         calculated_val = ((base_val - 1000) + (inc_val * (max_level - 1))) / 10
         return calculated_val, found_key
     else:
+        # Standard calculation
         calculated_val = base_val + inc_val * (max_level - 1)
         if 'permil' in found_key.lower():
             return calculated_val / 10, found_key

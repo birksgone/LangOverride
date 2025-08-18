@@ -295,7 +295,6 @@ def format_value(value):
 def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, hero_id: str, rules: dict, is_modifier: bool = False) -> (any, str):
     p_holder_upper = p_holder.upper()
     
-    # --- Check for exception rules first (hero-specific, then common) ---
     rule = rules.get("hero_rules", {}).get("specific", {}).get(hero_id, {}).get(p_holder_upper)
     if not rule:
         rule = rules.get("hero_rules", {}).get("common", {}).get(p_holder_upper)
@@ -303,70 +302,76 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, he
     if rule:
         calc_method = rule.get("calc")
         if calc_method == "fixed":
-            return rule.get("value"), "Fixed Rule"
+            value_str = rule.get("value")
+            try: return int(value_str), "Fixed Rule"
+            except (ValueError, TypeError):
+                try: return float(value_str), "Fixed Rule"
+                except (ValueError, TypeError): return value_str, "Fixed Rule"
 
         key_to_find = rule.get("key")
         if key_to_find:
             flat_data = flatten_json(data_block)
             matching_keys = [k for k in flat_data if k.endswith(key_to_find)]
-            
             if len(matching_keys) == 1:
                 found_key = matching_keys[0]
                 value = flat_data[found_key]
                 if isinstance(value, (int, float)):
-                    if 'permil' in found_key.lower():
-                        return value / 10, f"Exception Rule: {found_key}"
+                    if 'permil' in found_key.lower(): return value / 10, f"Exception Rule: {found_key}"
                     return int(value), f"Exception Rule: {found_key}"
         return None, f"Exception rule key '{key_to_find}' not found or ambiguous"
 
-    # --- Fallback to automatic detection ---
     if not isinstance(data_block, dict): return None, None
     flat_data = flatten_json(data_block)
     
-    normalized_pholder = p_holder.lower()
-    is_chance_related = 'chance' in normalized_pholder
-    
+    p_holder_lower = p_holder.lower()
     ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', p_holder)]
-    if not ph_keywords: ph_keywords = [normalized_pholder]
+    if not ph_keywords: ph_keywords = [p_holder.lower()]
 
-    ph_base_name, ph_index = normalized_pholder, None
-    match = re.match(r'(\w+)(\d+)$', normalized_pholder)
-    if match:
-        base, index_str = match.groups()
-        ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', base.capitalize())]
-        if not ph_keywords: ph_keywords = [base]
-        ph_index = int(index_str) - 1
-        
-    candidate_keys = []
-    for key in flat_data:
+    candidates = []
+    for key, value in flat_data.items():
+        if not isinstance(value, (int, float)): continue
         key_lower = key.lower()
-        if not is_chance_related and 'chance' in key_lower: continue
-        if is_chance_related and 'chance' not in key_lower: continue
-        search_key = key_lower.replace('generation', 'regen').replace('value', 'power')
-        if any(part in search_key for part in ph_keywords):
-            if ph_index is not None:
-                if f"_{ph_index}_" in key_lower or key_lower.endswith(f"_{ph_index}"):
-                    candidate_keys.append(key)
-            else:
-                candidate_keys.append(key)
-    
-    if not candidate_keys: return None, None
-    
-    priority_keywords = ['power', 'modifier', 'fixed', 'multiplier', 'permil']
-    priority_keys = [k for k in candidate_keys if any(kw in k.lower() for kw in priority_keywords)]
-    found_key = min(priority_keys, key=len) if priority_keys else min(candidate_keys, key=len)
+        score = 0
+        matched_keywords = sum(1 for kw in ph_keywords if kw in key_lower)
+        if matched_keywords > 0:
+            score += matched_keywords * 10
+            if 'power' in key_lower or 'modifier' in key_lower: score += 5
+            if 'permil' in key_lower: score += 3
+            candidates.append({'key': key, 'score': score})
+            
+    if not candidates: return None, None
+        
+    best_candidate = sorted(candidates, key=lambda x: (-x['score'], len(x['key'])))[0]
+    found_key = best_candidate['key']
 
     base_val = flat_data.get(found_key, 0)
-    inc_key_pattern = found_key.lower().replace("permil", "incrementperlevelpermil").replace('fixedpower', 'fixedpowerincrementperlevel')
-    inc_key = next((k for k in flat_data if k.lower() == inc_key_pattern), None)
-    inc_val = flat_data.get(inc_key, 0)
-
-    if not isinstance(base_val, (int, float)): return None, None
     
-    if is_modifier:
+    base_key_name = found_key.split('_')[-1]
+    inc_key_name_pattern_1 = base_key_name.replace("permil", "incrementperlevelpermil").replace('power', 'incrementperlevel')
+    inc_key_name_pattern_2 = base_key_name + "incrementperlevel"
+    
+    inc_key = None
+    for k in flat_data:
+        k_lower = k.lower()
+        if k_lower.endswith(inc_key_name_pattern_1) or k_lower.endswith(inc_key_name_pattern_2):
+            inc_key = k
+            break
+            
+    inc_val = flat_data.get(inc_key, 0)
+    if not isinstance(inc_val, (int, float)):
+        inc_val = 0
+    
+    # --- FIX: Smarter modifier detection ---
+    # A value is considered a modifier if the parser flag is set OR
+    # if the found key's name itself contains "modifier".
+    is_truly_modifier = is_modifier or 'modifier' in found_key.lower()
+    
+    if is_truly_modifier:
+        # Modifier-specific calculation (e.g., 1040 -> 4.0 -> "+4%")
         calculated_val = ((base_val - 1000) + (inc_val * (max_level - 1))) / 10
         return calculated_val, found_key
     else:
+        # Standard calculation
         calculated_val = base_val + inc_val * (max_level - 1)
         if 'permil' in found_key.lower():
             return calculated_val / 10, found_key
