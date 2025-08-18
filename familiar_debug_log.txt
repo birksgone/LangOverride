@@ -1,0 +1,1031 @@
+{ 'familiar_id': 'seshat_undead',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'seshat_undead',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'magical_sword_costume',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'magical_sword_costume',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': {'id': 'christmas_elf', 'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': {'id': 'christmas_elf', 'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': {'id': 'christmas_elf', 'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'sakura_fox_costume',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'sakura_fox_costume',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'raven_costume_freya',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'raven_costume_freya',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'bee_costume_kvasir',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'bee_costume_kvasir',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'witch_king_undead',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'witch_king_undead',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'holy_god_delilah',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'holy_god_delilah',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'red_hood_fox',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'red_hood_fox',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'card_soldier',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'card_soldier',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'seshat_undead',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'seshat_undead',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'magical_sword',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'magical_sword',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'mouse',
+  'familiar_instance': { 'amountPerCharacter': 3,
+                         'familiarTargetType': 'Single',
+                         'id': 'mouse',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'forest_familiar',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'forest_familiar',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'raven',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'raven',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'bee',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'bee',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'owl',
+  'familiar_instance': {'id': 'owl', 'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'moth',
+  'familiar_instance': {'id': 'moth', 'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'dark',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Purple',
+                         'id': 'dark',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'ice',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Blue',
+                         'id': 'ice',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'fire',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Red',
+                         'id': 'fire',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'nature',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Green',
+                         'id': 'nature',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'holy',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Yellow',
+                         'id': 'holy',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'frost_sprite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'frost_sprite',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'worm_parasite',
+  'familiar_instance': {'amountPerCharacter': 1, 'id': 'worm_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'skull_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'skull_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'spider_parasite',
+  'familiar_instance': {'amountPerCharacter': 1, 'id': 'spider_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'clown',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'clown',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'lynx',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'lynx',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'spectre_parasite',
+  'familiar_instance': {'amountPerCharacter': 1, 'id': 'spectre_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'wisp_parasite',
+  'familiar_instance': {'id': 'wisp_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'cursed_sapling_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'cursed_sapling_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'dark_soldier',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'dark_soldier',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'scarab_bomb_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'scarab_bomb_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'wei_soldier',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'wei_soldier',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'mercenary',
+  'familiar_instance': {'amountPerCharacter': 1, 'id': 'mercenary'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'lackey',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'lackey',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'shu_soldier',
+  'familiar_instance': {'id': 'shu_soldier', 'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'shu_soldier',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'shu_soldier',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'shu_guerrilla',
+  'familiar_instance': {'amountPerCharacter': 1, 'id': 'shu_guerrilla'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'wu_soldier',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'wu_soldier',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'wei_soldier',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'wei_soldier',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'wu_soldier',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'wu_soldier',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'wei_soldier',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'wei_soldier',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'shu_soldier',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'shu_soldier',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'wu_soldier',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'wu_soldier',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'scarab_bomb_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'scarab_bomb_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'sand_golem',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'sand_golem',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'forest_familiar',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'forest_familiar',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'larva',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'larva',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'gargoyle_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'gargoyle_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'gargoyle_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'gargoyle_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'forest_sprite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'forest_sprite',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'bone_trap_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'bone_trap_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'bone_trap_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'bone_trap_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'bone_trap_parasite',
+  'familiar_instance': {'amountPerCharacter': 1, 'id': 'bone_trap_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'harpoon_sentry',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'harpoon_sentry',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'dagger_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'SingleAndYellow',
+                         'id': 'dagger_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'hunting_owl',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'hunting_owl',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'bone_trap_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'bone_trap_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'bone_trap_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'bone_trap_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'blue_kitten_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'blue_kitten_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'muffin_parasite',
+  'familiar_instance': {'amountPerCharacter': 1, 'id': 'muffin_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'barbed_arrow_parasite',
+  'familiar_instance': { 'familiarTargetType': 'NearToTarget',
+                         'id': 'barbed_arrow_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'brown_puppy',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'brown_puppy',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'corrupted_mask',
+  'familiar_instance': {'amountPerCharacter': 1, 'id': 'corrupted_mask'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'guardian_minion_delilah_costume',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'guardian_minion_delilah_costume',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'undead_minion_thoth_amun_costume',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'undead_minion_thoth_amun_costume',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'spider_parasite_elizabeth_costume',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'spider_parasite_elizabeth_costume'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'moth_costume_bera',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'moth_costume_bera',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'forest_sprite_costume_mielikki',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'forest_sprite_costume_mielikki',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'mouse_costume_highwaycat',
+  'familiar_instance': { 'amountPerCharacter': 3,
+                         'familiarTargetType': 'Single',
+                         'id': 'mouse_costume_highwaycat',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'worm_parasite_vollermork_costume',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'worm_parasite_vollermork_costume'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'card_soldier_costume',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'card_soldier_costume',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'skull_parasite_costume_hannah',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'skull_parasite_costume_hannah'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'larva_costume_hulda',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'larva_costume_hulda',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'card_soldier_no_taunt',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'card_soldier_no_taunt',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'dark_soldier_set_costume',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'dark_soldier_set_costume',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'sand_golem_papyros_costume',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'sand_golem_papyros_costume',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'scarab_bomb_parasite_costumes',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'scarab_bomb_parasite_costumes'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'scarab_bomb_parasite_costumes',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'scarab_bomb_parasite_costumes'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'lackey_minion_costume',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'lackey_minion_costume',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'shu_soldier_minion_costume_zhuge',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'shu_soldier_minion_costume_zhuge',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'shu_guerilla_parasite_costume_zhuge',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'shu_guerilla_parasite_costume_zhuge'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'wu_soldier_costumes',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'wu_soldier_costumes',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'mercenary_costume',
+  'familiar_instance': {'amountPerCharacter': 1, 'id': 'mercenary_costume'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'wu_soldier_costumes',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'wu_soldier_costumes',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'gargoyle_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'gargoyle_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'icebound_sickle_minion',
+  'familiar_instance': { 'amountPerCharacter': 2,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'icebound_sickle_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'bone_skull_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'bone_skull_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': {'id': 'christmas_elf', 'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'familiarTargetType': 'NearToTarget',
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': {'id': 'christmas_elf', 'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': {'id': 'christmas_elf', 'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'familiarTargetType': 'NearToTarget',
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'spy_parasite',
+  'familiar_instance': {'amountPerCharacter': 1, 'id': 'spy_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'spy_parasite_weaker',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'spy_parasite_weaker'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'spreading_shadow_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'spreading_shadow_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'rock_golem_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'rock_golem_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'gossip_whisperer',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'gossip_whisperer'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'ballerina_fiend',
+  'familiar_instance': {'amountPerCharacter': 1, 'id': 'ballerina_fiend'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'body_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'body_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'fallen_star_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'fallen_star_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'infernal_parasite',
+  'familiar_instance': {'amountPerCharacter': 1, 'id': 'infernal_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'black_boar_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'black_boar_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'white_boar_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'white_boar_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'wei_soldier_costume',
+  'familiar_instance': {'id': 'wei_soldier_costume', 'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'shu_soldier_minion_costume_zhuge',
+  'familiar_instance': { 'id': 'shu_soldier_minion_costume_zhuge',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'clown_costume',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'clown_costume',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'spectre_parasite_senan_costume',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'spectre_parasite_senan_costume'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'dagger_parasite_costume',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'SingleAndYellow',
+                         'id': 'dagger_parasite_costume'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'spotted_boar_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'spotted_boar_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'goblin_explosive_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'goblin_explosive_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'white_boar_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'white_boar_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'leadria_spring_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'leadria_spring_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'pirate_fiend',
+  'familiar_instance': {'amountPerCharacter': 1, 'id': 'pirate_fiend'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'neema_fire_tiger',
+  'familiar_instance': {'amountPerCharacter': 1, 'id': 'neema_fire_tiger'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'ominous_tentacle',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'ominous_tentacle'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'xulu_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'xulu_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'owlkyrie',
+  'familiar_instance': { 'familiarTargetType': 'NearToTarget',
+                         'id': 'owlkyrie',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'ram_fiend',
+  'familiar_instance': { 'amountPerCharacter': 3,
+                         'familiarTargetType': 'Single',
+                         'id': 'ram_fiend'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'tart',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'tart',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'astral_sphere_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'astral_sphere_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'recruit_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'recruit_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'shield_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'shield_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'sword_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'sword_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'sword_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'sword_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'fire_wisp_parasite_vonreine',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'fire_wisp_parasite_vonreine'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'shield_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'shield_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'loyal_hound_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'loyal_hound_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'sword_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'sword_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'bone_trap_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Sides',
+                         'id': 'bone_trap_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'slime_fiend',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'slime_fiend'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'slime_fiend_mucktus',
+  'familiar_instance': {'amountPerCharacter': 1, 'id': 'slime_fiend_mucktus'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'fox_dodge_swiftpaw',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTarget',
+                         'id': 'fox_dodge_swiftpaw',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'sword_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'sword_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'carrot',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'carrot',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'shield_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'shield_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'sword_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'sword_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'bone_trap_parasite_amund',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'bone_trap_parasite_amund'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'shield_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'shield_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'amountPerCharacter': 2,
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'christmas_elf',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'christmas_elf',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'grave_mothling_big_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'grave_mothling_big_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'moss_mothling_big_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'moss_mothling_big_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'dusk_mothling_big_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'dusk_mothling_big_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'shield_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'shield_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'sword_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'sword_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'sword_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'sword_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'sword_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'sword_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'spear_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'spear_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'spear_guard_mega_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'spear_guard_mega_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'firewall_minion',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'id': 'firewall_minion',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'slime_big_minion_red',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'NearToTargetExceptCaster',
+                         'id': 'slime_big_minion_red',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'slime_big_minion_purple',
+  'familiar_instance': { 'familiarTargetType': 'Sides',
+                         'id': 'slime_big_minion_purple',
+                         'sideAffected': 'Allies'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================
+{ 'familiar_id': 'pike_big_parasite',
+  'familiar_instance': { 'amountPerCharacter': 1,
+                         'familiarTargetType': 'Single',
+                         'id': 'pike_big_parasite'},
+  'reason': 'Top-level lang_id search failed.'}
+================================================================================

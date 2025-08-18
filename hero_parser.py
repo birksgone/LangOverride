@@ -235,6 +235,8 @@ def _collect_keywords_recursively(data_block, depth=0, max_depth=2) -> list:
     return keywords
 
 def find_best_lang_id(data_block: dict, lang_key_subset: list, parsers: dict, parent_block: dict = None) -> str:
+    # This function's logic remains the same, but the call signature is confirmed.
+    # It will continue to add warnings to the parsers['warnings_list'] upon failure.
     if 'statusEffect' in data_block:
         buff_map = {
             "MinorDebuff": "minor", "MajorDebuff": "major",
@@ -269,14 +271,12 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parsers: dict, pa
             if kw in lang_key_parts:
                 score += 100 / (2 ** depth)
 
-        # --- NEW: Intelligent scoring for Familiars based on your insight ---
         familiar_type = data_block.get("familiarType", "").lower()
         if familiar_type:
             if ("minion" in familiar_type and "allies" in lang_key_parts):
-                score += 20 # Big bonus for correct side
+                score += 20
             if ("parasite" in familiar_type and "enemies" in lang_key_parts):
-                score += 20 # Big bonus for correct side
-        # --- End of new logic ---
+                score += 20
 
         if 'fixedpower' in lang_key_parts and 'hasfixedpower' in seen_keywords:
             score += 3
@@ -284,10 +284,10 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parsers: dict, pa
             score += 2
 
         if score > 0:
-            potential_matches.append({'key': lang_key, 'score': score})
+            potential_matches.append({'key': lang_key, 'score': score, 'parts': lang_key_parts})
     
     if not potential_matches:
-        primary_keyword = (data_block.get('propertyType') or data_block.get('statusEffect') or 'N/A')
+        primary_keyword = (data_block.get('propertyType') or data_block.get('statusEffect') or data_block.get('familiarType') or 'N/A')
         warning_message = f"Could not find lang_id for skill '{data_block.get('id', 'UNKNOWN')}' (type: {primary_keyword})"
         if "warnings_list" in parsers and warning_message not in parsers.get("unique_warnings_set", set()):
              parsers["warnings_list"].append(warning_message)
@@ -295,6 +295,16 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parsers: dict, pa
         return None
 
     potential_matches.sort(key=lambda x: (-x['score'], len(x['key'])))
+    
+    # --- For Debugging Familiar Failures ---
+    if "familiar_debug_log" in parsers and data_block.get('familiarType'):
+        log_entry = {
+            "familiar_id": data_block.get('id'),
+            "familiar_instance": data_block,
+            "top_candidates": [{'score': f"{m['score']:.2f}", 'key': m['key']} for m in potential_matches[:5]]
+        }
+        parsers["familiar_debug_log_buffer"].append(log_entry)
+
     return potential_matches[0]['key']
 
 def parse_clear_buffs(special_data: dict, lang_db: dict, parsers: dict) -> dict:
@@ -578,10 +588,8 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
     main_max_level = special_data.get("maxLevel", 8)
     
     FAMILIAR_TYPE_TO_PREFIX = {
-        "Minion": "minion",
-        "BigMinion": "bigminion",
-        "Parasite": "parasite",
-        "BigParasite": "bigparasite"
+        "Minion": "minion", "BigMinion": "bigminion",
+        "Parasite": "parasite", "BigParasite": "bigparasite"
     }
 
     for familiar_instance in familiars_list:
@@ -593,11 +601,17 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
         prefix = FAMILIAR_TYPE_TO_PREFIX.get(familiar_type_str)
         
         if prefix:
-            # Create a highly specific subset of lang_ids to search in
             familiar_lang_subset = [k for k in lang_db if k.startswith(f"specials.v2.{prefix}.")]
             lang_id = find_best_lang_id(familiar_instance, familiar_lang_subset, parsers)
 
         if not lang_id:
+            # Add comprehensive debug info for logging
+            log_entry = {
+                "reason": "Top-level lang_id search failed.",
+                "familiar_id": familiar_id,
+                "familiar_instance": familiar_instance,
+            }
+            parsers["familiar_debug_log"].append(log_entry)
             parsed_items.append({ "id": familiar_id, "lang_id": "SEARCH_FAILED", "description_en": f"Failed for familiar {familiar_id}", "nested_effects": []})
             continue
 
@@ -622,12 +636,9 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
             nested_effects = _parse_familiar_effects(familiar_instance, lang_db, hero_stats, game_db, hero_id, rules, parsers)
 
         parsed_items.append({
-            "id": familiar_id,
-            "lang_id": lang_id,
-            "description_en": main_desc['en'],
-            "description_ja": main_desc['ja'],
-            "params": json.dumps(lang_params),
-            "nested_effects": nested_effects
+            "id": familiar_id, "lang_id": lang_id,
+            "description_en": main_desc['en'], "description_ja": main_desc['ja'],
+            "params": json.dumps(lang_params), "nested_effects": nested_effects
         })
     return parsed_items
 
@@ -638,21 +649,27 @@ def _parse_familiar_effects(familiar_instance: dict, lang_db: dict, hero_stats: 
     parsed_effects = []
     main_max_level = parsers.get("main_max_level", 8)
     familiar_id = familiar_instance.get("id", "")
-
-    # Create a flexible subset of lang_ids to search for effects
-    effect_lang_subset = [k for k in lang_db if familiar_id in k and (k.startswith("specials.v2.") or k.startswith("familiar.statuseffect."))]
-    if not effect_lang_subset: # Fallback if ID is not in lang_key (e.g. generic effects)
-        effect_lang_subset = [k for k in lang_db if k.startswith("familiar.statuseffect.")]
-
-
+    familiar_type = familiar_instance.get("familiarType", "").lower()
+    
     for effect_data in effects_list:
         effect_id = effect_data.get("id")
         if not effect_id: continue
+        
+        prefix1 = f"specials.v2.{familiar_type}.{familiar_id}"
+        prefix2 = "familiar.statuseffect"
+        effect_lang_subset = [k for k in lang_db if k.startswith(prefix1) or k.startswith(prefix2)]
         
         context_block = {**familiar_instance, **effect_data}
         
         lang_id = find_best_lang_id(context_block, effect_lang_subset, parsers)
         if not lang_id:
+            log_entry = {
+                "reason": "Nested effect lang_id search failed.",
+                "familiar_id": familiar_id,
+                "effect_id": effect_id,
+                "context_block": context_block,
+            }
+            parsers["familiar_debug_log"].append(log_entry)
             parsed_effects.append({ "id": effect_id, "lang_id": "SEARCH_FAILED", "description_en": f"Failed for familiar effect {effect_id}", "en": f"Failed for familiar effect {effect_id}"})
             continue
 
@@ -671,8 +688,7 @@ def _parse_familiar_effects(familiar_instance: dict, lang_db: dict, hero_stats: 
         descriptions = generate_description(lang_id, formatted_params, lang_db)
         
         parsed_effects.append({
-            "id": effect_id,
-            "lang_id": lang_id,
+            "id": effect_id, "lang_id": lang_id,
             "params": json.dumps(lang_params),
             **descriptions
         })
