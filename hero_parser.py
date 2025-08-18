@@ -107,9 +107,10 @@ def get_hero_final_stats(hero_id: str, hero_stats_db: dict) -> dict:
             break
     return {"max_attack": int(hero_data.get(attack_col, 0)), "name": hero_data.get('Name', 'N/A')}
 
-def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, hero_id: str, rules: dict, is_modifier: bool = False) -> (any, str):
+def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, hero_id: str, rules: dict, is_modifier: bool = False, ignore_keywords: list = None) -> (any, str):
     p_holder_upper = p_holder.upper()
     
+    # --- Step 1: Exception Rule Check ---
     rule = rules.get("hero_rules", {}).get("specific", {}).get(hero_id, {}).get(p_holder_upper)
     if not rule:
         rule = rules.get("hero_rules", {}).get("common", {}).get(p_holder_upper)
@@ -135,8 +136,14 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, he
                     return int(value), f"Exception Rule: {found_key}"
         return None, f"Exception rule key '{key_to_find}' not found or ambiguous"
 
+    # --- Step 2: Automatic Detection ---
     if not isinstance(data_block, dict): return None, None
     flat_data = flatten_json(data_block)
+
+    if ignore_keywords:
+        keys_to_remove = {k for k in flat_data if any(ik in k.lower() for ik in ignore_keywords)}
+        for k in keys_to_remove:
+            del flat_data[k]
     
     p_holder_lower = p_holder.lower()
     ph_keywords = [s.lower() for s in re.findall('[A-Z][^A-Z]*', p_holder)]
@@ -162,31 +169,32 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, he
     base_val = flat_data.get(found_key, 0)
     
     base_key_name = found_key.split('_')[-1]
-    inc_key_name_pattern_1 = base_key_name.replace("permil", "incrementperlevelpermil").replace('power', 'incrementperlevel')
-    inc_key_name_pattern_2 = base_key_name + "incrementperlevel"
+    inc_key_patterns = [
+        base_key_name.replace("permil", "incrementperlevelpermil"),
+        base_key_name.replace("power", "incrementperlevel"),
+        re.sub(r'([a-z])([A-Z])', r'\1Increment\2', found_key).lower(),
+        base_key_name + "incrementperlevel"
+    ]
+    if 'permil' in base_key_name:
+        inc_key_patterns.append(base_key_name.replace("permil", "incrementperlevelpermil"))
     
     inc_key = None
-    for k in flat_data:
-        k_lower = k.lower()
-        if k_lower.endswith(inc_key_name_pattern_1) or k_lower.endswith(inc_key_name_pattern_2):
-            inc_key = k
+    flat_keys_lower = {k.lower(): k for k in flat_data.keys()}
+    for pattern in inc_key_patterns:
+        if pattern in flat_keys_lower:
+            inc_key = flat_keys_lower[pattern]
             break
-            
+
     inc_val = flat_data.get(inc_key, 0)
     if not isinstance(inc_val, (int, float)):
         inc_val = 0
     
-    # --- FIX: Smarter modifier detection ---
-    # A value is considered a modifier if the parser flag is set OR
-    # if the found key's name itself contains "modifier".
     is_truly_modifier = is_modifier or 'modifier' in found_key.lower()
     
     if is_truly_modifier:
-        # Modifier-specific calculation (e.g., 1040 -> 4.0 -> "+4%")
         calculated_val = ((base_val - 1000) + (inc_val * (max_level - 1))) / 10
         return calculated_val, found_key
     else:
-        # Standard calculation
         calculated_val = base_val + inc_val * (max_level - 1)
         if 'permil' in found_key.lower():
             return calculated_val / 10, found_key
@@ -261,6 +269,15 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parsers: dict, pa
             if kw in lang_key_parts:
                 score += 100 / (2 ** depth)
 
+        # --- NEW: Intelligent scoring for Familiars based on your insight ---
+        familiar_type = data_block.get("familiarType", "").lower()
+        if familiar_type:
+            if ("minion" in familiar_type and "allies" in lang_key_parts):
+                score += 20 # Big bonus for correct side
+            if ("parasite" in familiar_type and "enemies" in lang_key_parts):
+                score += 20 # Big bonus for correct side
+        # --- End of new logic ---
+
         if 'fixedpower' in lang_key_parts and 'hasfixedpower' in seen_keywords:
             score += 3
         if 'decrement' in lang_key_parts and any(isinstance(v, (int, float)) and v < 0 for v in data_block.values()):
@@ -271,9 +288,7 @@ def find_best_lang_id(data_block: dict, lang_key_subset: list, parsers: dict, pa
     
     if not potential_matches:
         primary_keyword = (data_block.get('propertyType') or data_block.get('statusEffect') or 'N/A')
-        # --- MODIFIED: Instead of printing, add the warning to the list ---
         warning_message = f"Could not find lang_id for skill '{data_block.get('id', 'UNKNOWN')}' (type: {primary_keyword})"
-        # Add to the list only if it's not already there to avoid duplicates per hero
         if "warnings_list" in parsers and warning_message not in parsers.get("unique_warnings_set", set()):
              parsers["warnings_list"].append(warning_message)
              parsers["unique_warnings_set"].add(warning_message)
@@ -558,26 +573,43 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
     return parsed_items
 
 def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, lang_db: dict, game_db: dict, hero_id: str, rules: dict, parsers: dict) -> list:
-    # ... (This function is unchanged)
     if not familiars_list: return []
     parsed_items = []
-    max_level = special_data.get("maxLevel", 1)
+    main_max_level = special_data.get("maxLevel", 8)
+    
+    FAMILIAR_TYPE_TO_PREFIX = {
+        "Minion": "minion", "BigMinion": "bigminion",
+        "Parasite": "parasite", "BigParasite": "bigparasite"
+    }
 
     for familiar_instance in familiars_list:
-        if not (familiar_id := familiar_instance.get("id")): continue
-        fam_type, fam_target = familiar_instance.get("familiarType"), familiar_instance.get("familiarTargetType")
-        if not (fam_type and fam_target): continue
+        familiar_id = familiar_instance.get("id")
+        if not familiar_id: continue
 
-        lang_id = f"specials.v2.{fam_type.lower()}.{familiar_id}.{fam_target.lower()}"
+        familiar_type_str = familiar_instance.get("familiarType")
+        prefix = FAMILIAR_TYPE_TO_PREFIX.get(familiar_type_str)
+        
+        lang_id = None
+        if prefix:
+            familiar_lang_subset = [k for k in lang_db if k.startswith(f"specials.v2.{prefix}.")]
+            lang_id = find_best_lang_id(familiar_instance, familiar_lang_subset, parsers)
+
+        if not lang_id:
+            parsed_items.append({ "id": familiar_id, "lang_id": "SEARCH_FAILED", "description_en": f"Failed for familiar {familiar_id}", "nested_effects": []})
+            continue
+
         lang_params = {}
         template_text = lang_db.get(lang_id, {}).get("en", "")
         placeholders = set(re.findall(r'\{(\w+)\}', template_text))
 
         for p_holder in placeholders:
+            # --- NEW: Give the special instruction to ignore 'monster' keys ---
             value, _ = find_and_calculate_value(
-                p_holder, familiar_instance, max_level, hero_id, rules,
-                is_modifier=False
+                p_holder, familiar_instance, main_max_level, hero_id, rules,
+                is_modifier=False,
+                ignore_keywords=['monster']
             )
+            # --- End of new logic ---
             if value is not None: lang_params[p_holder] = value
         
         formatted_params = {k: format_value(v) for k, v in lang_params.items()}
@@ -585,14 +617,63 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
         main_desc['en'], main_desc['ja'] = main_desc['en'].replace('[*]', '\n・').strip(), main_desc['ja'].replace('[*]', '\n・').strip()
         
         nested_effects = []
-        if 'effects' in familiar_instance: pass
+        if 'effects' in familiar_instance:
+            nested_effects = _parse_familiar_effects(familiar_instance, lang_db, hero_stats, game_db, hero_id, rules, parsers)
 
         parsed_items.append({
-            "id": familiar_id, "lang_id": lang_id, "description_en": main_desc['en'],
-            "description_ja": main_desc['ja'], "params": json.dumps(lang_params),
-            "nested_effects": nested_effects
+            "id": familiar_id, "lang_id": lang_id,
+            "description_en": main_desc['en'], "description_ja": main_desc['ja'],
+            "params": json.dumps(lang_params), "nested_effects": nested_effects
         })
     return parsed_items
+
+def _parse_familiar_effects(familiar_instance: dict, lang_db: dict, hero_stats: dict, game_db: dict, hero_id: str, rules: dict, parsers: dict) -> list:
+    effects_list = familiar_instance.get("effects", [])
+    if not effects_list: return []
+    
+    parsed_effects = []
+    main_max_level = parsers.get("main_max_level", 8)
+    familiar_id = familiar_instance.get("id", "")
+
+    # Create a flexible subset of lang_ids to search for effects
+    effect_lang_subset = [k for k in lang_db if familiar_id in k and (k.startswith("specials.v2.") or k.startswith("familiar.statuseffect."))]
+    if not effect_lang_subset: # Fallback if ID is not in lang_key (e.g. generic effects)
+        effect_lang_subset = [k for k in lang_db if k.startswith("familiar.statuseffect.")]
+
+
+    for effect_data in effects_list:
+        effect_id = effect_data.get("id")
+        if not effect_id: continue
+        
+        context_block = {**familiar_instance, **effect_data}
+        
+        lang_id = find_best_lang_id(context_block, effect_lang_subset, parsers)
+        if not lang_id:
+            parsed_effects.append({ "id": effect_id, "lang_id": "SEARCH_FAILED", "description_en": f"Failed for familiar effect {effect_id}", "en": f"Failed for familiar effect {effect_id}"})
+            continue
+
+        lang_params = {}
+        template_text = lang_db.get(lang_id, {}).get("en", "")
+        placeholders = set(re.findall(r'\{(\w+)\}', template_text))
+
+        for p_holder in placeholders:
+            value, _ = find_and_calculate_value(p_holder, context_block, main_max_level, hero_id, rules, is_modifier=False)
+            if value is not None: lang_params[p_holder] = value
+            
+        if 'FAMILIAREFFECTFREQUENCY' in placeholders and 'turnsBetweenNonDamageEffects' in familiar_instance:
+             lang_params['FAMILIAREFFECTFREQUENCY'] = familiar_instance['turnsBetweenNonDamageEffects'] + 1
+             
+        formatted_params = {k: format_value(v) for k, v in lang_params.items()}
+        descriptions = generate_description(lang_id, formatted_params, lang_db)
+        
+        parsed_effects.append({
+            "id": effect_id,
+            "lang_id": lang_id,
+            "params": json.dumps(lang_params),
+            **descriptions
+        })
+        
+    return parsed_effects
 
 def parse_passive_skills(passive_skills_list: list, hero_stats: dict, lang_db: dict, game_db: dict, hero_id: str, rules: dict, parsers: dict) -> list:
     if not passive_skills_list:
