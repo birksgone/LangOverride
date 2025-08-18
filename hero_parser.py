@@ -578,19 +578,22 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
     main_max_level = special_data.get("maxLevel", 8)
     
     FAMILIAR_TYPE_TO_PREFIX = {
-        "Minion": "minion", "BigMinion": "bigminion",
-        "Parasite": "parasite", "BigParasite": "bigparasite"
+        "Minion": "minion",
+        "BigMinion": "bigminion",
+        "Parasite": "parasite",
+        "BigParasite": "bigparasite"
     }
 
     for familiar_instance in familiars_list:
         familiar_id = familiar_instance.get("id")
         if not familiar_id: continue
 
+        lang_id = None
         familiar_type_str = familiar_instance.get("familiarType")
         prefix = FAMILIAR_TYPE_TO_PREFIX.get(familiar_type_str)
         
-        lang_id = None
         if prefix:
+            # Create a highly specific subset of lang_ids to search in
             familiar_lang_subset = [k for k in lang_db if k.startswith(f"specials.v2.{prefix}.")]
             lang_id = find_best_lang_id(familiar_instance, familiar_lang_subset, parsers)
 
@@ -603,13 +606,11 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
         placeholders = set(re.findall(r'\{(\w+)\}', template_text))
 
         for p_holder in placeholders:
-            # --- NEW: Give the special instruction to ignore 'monster' keys ---
             value, _ = find_and_calculate_value(
                 p_holder, familiar_instance, main_max_level, hero_id, rules,
                 is_modifier=False,
                 ignore_keywords=['monster']
             )
-            # --- End of new logic ---
             if value is not None: lang_params[p_holder] = value
         
         formatted_params = {k: format_value(v) for k, v in lang_params.items()}
@@ -621,9 +622,12 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
             nested_effects = _parse_familiar_effects(familiar_instance, lang_db, hero_stats, game_db, hero_id, rules, parsers)
 
         parsed_items.append({
-            "id": familiar_id, "lang_id": lang_id,
-            "description_en": main_desc['en'], "description_ja": main_desc['ja'],
-            "params": json.dumps(lang_params), "nested_effects": nested_effects
+            "id": familiar_id,
+            "lang_id": lang_id,
+            "description_en": main_desc['en'],
+            "description_ja": main_desc['ja'],
+            "params": json.dumps(lang_params),
+            "nested_effects": nested_effects
         })
     return parsed_items
 
