@@ -35,7 +35,7 @@ def format_value(value):
     if isinstance(value, float): return f"{value:.1f}"
     return value
 
-# --- NEW: Centralized Tooltip Parsing Helper (Robust Version) ---
+# --- Centralized Tooltip Parsing Helper (Robust Version) ---
 def _find_and_parse_extra_description(
     categories: list, skill_name: str, search_context: dict, main_params: dict,
     lang_db: dict, hero_id: str, rules: dict, parsers: dict
@@ -46,45 +46,31 @@ def _find_and_parse_extra_description(
     """
     if not skill_name or not categories:
         return {}
-
     skill_name_lower = skill_name.lower()
-
-    # Find all candidate keys that contain the skill name and '.extra'
     candidates = [
         key for key in parsers['extra_lang_ids']
         if skill_name_lower in key and '.extra' in key
     ]
-
-    # From the candidates, find one that also contains one of the category names
     extra_lang_id = None
     for key in candidates:
         if any(cat in key for cat in categories):
             extra_lang_id = key
-            break  # Found the first and best match
-
+            break
     if extra_lang_id and extra_lang_id in lang_db:
         extra_params = {}
         extra_template_text = lang_db.get(extra_lang_id, {}).get("en", "")
         extra_placeholders = set(re.findall(r'\{(\w+)\}', extra_template_text))
-
-        # Inherit params from main description if placeholder exists in both
         for p in extra_placeholders:
-            if p in main_params:
-                extra_params[p] = main_params[p]
-
-        # Find any remaining params needed only for the tooltip
+            if p in main_params: extra_params[p] = main_params[p]
         remaining_placeholders = extra_placeholders - set(extra_params.keys())
         for p_holder in remaining_placeholders:
             value, _ = find_and_calculate_value(
                 p_holder, search_context, search_context.get("maxLevel", 8),
                 hero_id, rules, is_modifier=False
             )
-            if value is not None:
-                extra_params[p_holder] = value
-
+            if value is not None: extra_params[p_holder] = value
         formatted_extra_params = {k: format_value(v) for k, v in extra_params.items()}
         extra_desc = generate_description(extra_lang_id, formatted_extra_params, lang_db)
-
         return {
             "lang_id": extra_lang_id,
             "params": json.dumps(extra_params),
@@ -92,7 +78,6 @@ def _find_and_parse_extra_description(
             "ja": re.sub(r'\[\*\]|\n\s*\n', '\n・', extra_desc.get("ja", "")).strip()
         }
     return {}
-
 
 # --- Core Data Integration Logic (Unchanged) ---
 def get_full_hero_data(base_data: dict, game_db: dict) -> dict:
@@ -351,7 +336,15 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
             parsed_ses, new_warnings = parsers['status_effects'](prop_data['statusEffects'], special_data, hero_stats, lang_db, game_db, hero_id, rules, parsers)
             nested_effects.extend(parsed_ses); warnings.extend(new_warnings)
         
-        extra_info = _find_and_parse_extra_description(["specialproperty", "property"], property_type, search_context, lang_params, lang_db, hero_id, rules, parsers)
+        extra_info = {}
+        prop_type_lower = property_type.lower()
+        if prop_type_lower in game_db.get('extra_description_keys', set()):
+            extra_info = _find_and_parse_extra_description(
+                categories=["specialproperty", "property"], 
+                skill_name=prop_type_lower, 
+                search_context=search_context, main_params=lang_params, 
+                lang_db=lang_db, hero_id=hero_id, rules=rules, parsers=parsers
+            )
         
         result_item = {"id":prop_id,"lang_id":lang_id,"params":json.dumps(lang_params),"nested_effects":nested_effects,**main_desc}
         if extra_info: result_item["extra"] = extra_info
@@ -393,7 +386,15 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
              nested_effects.extend(parsed_nested_ses); warnings.extend(new_warnings)
         status_effect_type = combined_details.get("statusEffect","")
         
-        extra_info = _find_and_parse_extra_description(["statuseffect"], status_effect_type, search_context, lang_params, lang_db, hero_id, rules, parsers)
+        extra_info = {}
+        status_effect_lower = status_effect_type.lower()
+        if status_effect_lower in game_db.get('extra_description_keys', set()):
+             extra_info = _find_and_parse_extra_description(
+                 categories=["statuseffect"], 
+                 skill_name=status_effect_lower,
+                 search_context=search_context, main_params=lang_params, 
+                 lang_db=lang_db, hero_id=hero_id, rules=rules, parsers=parsers
+            )
         
         result_item = {"id":effect_id,"lang_id":lang_id,"params":json.dumps(lang_params),"nested_effects":nested_effects,**main_desc}
         if extra_info: result_item["extra"] = extra_info
@@ -440,8 +441,16 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
             warnings.extend(new_warnings)
         familiar_type = familiar_instance.get("familiarType","")
         
-        extra_info = _find_and_parse_extra_description(["familiartype"], familiar_type, search_context, lang_params, lang_db, hero_id, rules, parsers)
-        
+        extra_info = {}
+        familiar_type_lower = familiar_type.lower()
+        if familiar_type_lower in game_db.get('extra_description_keys', set()):
+            extra_info = _find_and_parse_extra_description(
+                categories=["familiartype"], 
+                skill_name=familiar_type_lower, 
+                search_context=search_context, main_params=lang_params, 
+                lang_db=lang_db, hero_id=hero_id, rules=rules, parsers=parsers
+            )
+
         result_item = {"id":familiar_id,"lang_id":lang_id,"params":json.dumps(lang_params),"nested_effects":nested_effects,"description_en":main_desc['en'],"description_ja":main_desc['ja']}
         if extra_info: result_item["extra"] = extra_info
         parsed_items.append(result_item)
@@ -458,7 +467,7 @@ def _parse_familiar_effects(familiar_instance: dict, lang_db: dict, hero_stats: 
         effect_id = effect_data.get("id"); context_block = {**familiar_instance, **effect_data}
         if not effect_id: continue
         effect_type_keyword = effect_data.get('effectType',"")
-        primary_candidates = [k for k in all_effect_lang_ids if (effect_type_keyword and effect_type_keyword in k) or (effect_id and effect_id in k)]
+        primary_candidates = [k for k in all_effect_lang_ids if (effect_type_keyword.lower() and effect_type_keyword.lower() in k) or (effect_id and effect_id in k)]
         lang_id, warning = (find_best_lang_id(context_block, primary_candidates, parsers) if primary_candidates else find_best_lang_id(context_block, all_effect_lang_ids, parsers))
         if warning: warnings.append(warning)
         if not lang_id:
@@ -472,7 +481,15 @@ def _parse_familiar_effects(familiar_instance: dict, lang_db: dict, hero_stats: 
              lang_params['FAMILIAREFFECTFREQUENCY'] = familiar_instance['turnsBetweenNonDamageEffects'] + 1
         main_desc = generate_description(lang_id, {k:format_value(v) for k,v in lang_params.items()}, lang_db)
 
-        extra_info = _find_and_parse_extra_description(["familiareffect"], effect_type_keyword, search_context, lang_params, lang_db, hero_id, rules, parsers)
+        extra_info = {}
+        effect_type_lower = effect_type_keyword.lower()
+        if effect_type_lower in game_db.get('extra_description_keys', set()):
+            extra_info = _find_and_parse_extra_description(
+                categories=["familiareffect"], 
+                skill_name=effect_type_lower, 
+                search_context=search_context, main_params=lang_params, 
+                lang_db=lang_db, hero_id=hero_id, rules=rules, parsers=parsers
+            )
         
         result_item = {"id":effect_id,"lang_id":lang_id,"params":json.dumps(lang_params),**main_desc}
         if extra_info: result_item["extra"] = extra_info
