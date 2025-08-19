@@ -103,8 +103,10 @@ def _format_final_description(skill_descriptions: dict, lang: str, skill_types_t
 
 
 def write_final_csv(processed_data: list, output_path: Path):
-    """Writes the main, human-readable CSV with separate columns for passives, specials, and tooltips."""
-    print(f"\n--- Writing final results to {output_path.name} ---")
+    """
+    Writes the main, human-readable CSV, splitting it into multiple files if it's too large.
+    """
+    print(f"\n--- Writing final results to {output_path.name} (and potential chunks) ---")
     if not processed_data:
         print("Warning: No data to write.")
         return
@@ -116,7 +118,6 @@ def write_final_csv(processed_data: list, output_path: Path):
         skills = hero.get('skillDescriptions', {})
         special_context = hero.get('_special_data_context', {})
 
-        # --- MODIFIED: Unpack tuples from _format_final_description ---
         passive_en_main, passive_en_tooltips = _format_final_description(skills, 'en', ['passiveSkills'], special_context)
         passive_ja_main, passive_ja_tooltips = _format_final_description(skills, 'ja', ['passiveSkills'], special_context)
         ss_en_main, ss_en_tooltips = _format_final_description(skills, 'en', ss_skill_types, special_context)
@@ -131,12 +132,9 @@ def write_final_csv(processed_data: list, output_path: Path):
             "ss_ja": ss_ja_main,
         }
 
-        # --- NEW: Add tooltip columns dynamically ---
-        # Combine tooltips from both passive and special skills for each language
         all_tooltips_en = passive_en_tooltips + ss_en_tooltips
         all_tooltips_ja = passive_ja_tooltips + ss_ja_tooltips
         
-        # Add up to 2 tooltips per language to the row
         for i in range(2):
             row[f'extra_en_{i+1}'] = all_tooltips_en[i] if i < len(all_tooltips_en) else ""
             row[f'extra_ja_{i+1}'] = all_tooltips_ja[i] if i < len(all_tooltips_ja) else ""
@@ -145,15 +143,32 @@ def write_final_csv(processed_data: list, output_path: Path):
         
     try:
         df = pd.DataFrame(output_rows)
-        # Define column order to ensure extra columns are at the end
         column_order = [
             "hero_id", "hero_name", 
             "passive_en", "passive_ja", "ss_en", "ss_ja",
             "extra_en_1", "extra_ja_1", "extra_en_2", "extra_ja_2"
         ]
         df = df[column_order]
-        df.to_csv(output_path, index=False, encoding='utf-8-sig', quoting=csv.QUOTE_ALL, lineterminator='\n')
-        print(f"Successfully saved {len(df)} rows to {output_path.name}.")
+
+        # --- NEW: File Splitting Logic ---
+        chunk_size = 600
+        num_chunks = (len(df) - 1) // chunk_size + 1
+
+        if num_chunks <= 1:
+            # If there's only one chunk, save it with the original filename
+            df.to_csv(output_path, index=False, encoding='utf-8-sig', quoting=csv.QUOTE_ALL, lineterminator='\n')
+            print(f"Successfully saved {len(df)} rows to {output_path.name}.")
+        else:
+            # If there are multiple chunks, save them with numbered suffixes
+            print(f"Data is large. Splitting into {num_chunks} files of ~{chunk_size} rows each.")
+            base_name = output_path.stem
+            suffix = output_path.suffix
+            for i in range(num_chunks):
+                chunk_df = df.iloc[i*chunk_size:(i+1)*chunk_size]
+                chunk_path = output_path.parent / f"{base_name}_{i+1}{suffix}"
+                chunk_df.to_csv(chunk_path, index=False, encoding='utf-8-sig', quoting=csv.QUOTE_ALL, lineterminator='\n')
+                print(f" -> Successfully saved chunk {i+1} ({len(chunk_df)} rows) to {chunk_path.name}.")
+
     except Exception as e:
         print(f"FATAL: Failed to write final CSV: {e}")
 
