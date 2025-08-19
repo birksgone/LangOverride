@@ -211,10 +211,11 @@ def phase_two_parse_skills(debug_data: dict, lang_db: dict, game_db: dict, hero_
     print("\n--- Phase 2: Parsing skills from unified data ---")
     processed_heroes_data = []
     
+    # Initialize the final warning collectors
     parsers['warnings_list'] = []
     parsers['unique_warnings_set'] = set()
     parsers['familiar_debug_log'] = []
-    parsers['familiar_parameter_log'] = [] # <-- NEW: Initialize list for parameter logs
+    parsers['familiar_parameter_log'] = []
 
     total_heroes = len(debug_data)
     for i, (hero_id, full_hero_data) in enumerate(debug_data.items()):
@@ -227,24 +228,40 @@ def phase_two_parse_skills(debug_data: dict, lang_db: dict, game_db: dict, hero_
         skill_descriptions = {}
         special_data_for_hero = None
         
-        # --- MODIFIED: Use the fully resolved special data from the hero object ---
-        # Instead of looking up the special_id in the original game_db,
-        # we now use the 'specialId_details' which was resolved in Phase 1.
-        # This ensures all parsers receive the complete, nested data.
+        # --- MODIFIED: Unpack tuples returned from parsers and collect warnings ---
+        def collect_warnings(new_warnings):
+            if not new_warnings: return
+            for w in new_warnings:
+                if w not in parsers['unique_warnings_set']:
+                    parsers['unique_warnings_set'].add(w)
+                    parsers['warnings_list'].append(w)
+
         if special_data := full_hero_data.get("specialId_details"):
             special_data_for_hero = special_data
             parsers["hero_mana_speed_id"] = full_hero_data.get("manaSpeedId")
             
-            prop_list = special_data.get("properties", [])
-            se_list = special_data.get("statusEffects", [])
-            familiar_list = special_data.get("summonedFamiliars", [])
-
+            # Note: parse_direct_effect was not modified as it doesn't generate warnings
             skill_descriptions['directEffect'] = parsers['direct_effect'](special_data, hero_final_stats, lang_db, game_db, hero_id, rules, parsers)
-            skill_descriptions['clear_buffs'] = parsers['clear_buffs'](special_data, lang_db, parsers)
-            skill_descriptions['properties'] = parsers['properties'](prop_list, special_data, hero_final_stats, lang_db, game_db, hero_id, rules, parsers)
-            skill_descriptions['statusEffects'] = parsers['status_effects'](se_list, special_data, hero_final_stats, lang_db, game_db, hero_id, rules, parsers)
-            skill_descriptions['familiars'] = parsers['familiars'](familiar_list, special_data, hero_final_stats, lang_db, game_db, hero_id, rules, parsers)
-        
+            
+            parsed_clear_buffs, new_warnings = parsers['clear_buffs'](special_data, lang_db, parsers)
+            skill_descriptions['clear_buffs'] = parsed_clear_buffs
+            collect_warnings(new_warnings)
+
+            prop_list = special_data.get("properties", [])
+            parsed_properties, new_warnings = parsers['properties'](prop_list, special_data, hero_final_stats, lang_db, game_db, hero_id, rules, parsers)
+            skill_descriptions['properties'] = parsed_properties
+            collect_warnings(new_warnings)
+            
+            se_list = special_data.get("statusEffects", [])
+            parsed_status_effects, new_warnings = parsers['status_effects'](se_list, special_data, hero_final_stats, lang_db, game_db, hero_id, rules, parsers)
+            skill_descriptions['statusEffects'] = parsed_status_effects
+            collect_warnings(new_warnings)
+
+            familiar_list = special_data.get("summonedFamiliars", [])
+            parsed_familiars, new_warnings = parsers['familiars'](familiar_list, special_data, hero_final_stats, lang_db, game_db, hero_id, rules, parsers)
+            skill_descriptions['familiars'] = parsed_familiars
+            collect_warnings(new_warnings)
+
         passive_list = full_hero_data.get('passiveSkills', [])
         costume_passive_list = []
         if costume_bonuses := full_hero_data.get('costumeBonusesId_details'):
@@ -253,7 +270,9 @@ def phase_two_parse_skills(debug_data: dict, lang_db: dict, game_db: dict, hero_
 
         all_passives = passive_list + costume_passive_list
         if all_passives:
-            skill_descriptions['passiveSkills'] = parsers['passive_skills'](all_passives, hero_final_stats, lang_db, game_db, hero_id, rules, parsers)
+            parsed_passives, new_warnings = parsers['passive_skills'](all_passives, hero_final_stats, lang_db, game_db, hero_id, rules, parsers)
+            skill_descriptions['passiveSkills'] = parsed_passives
+            collect_warnings(new_warnings)
         
         processed_hero['_special_data_context'] = special_data_for_hero
         processed_hero['skillDescriptions'] = {k: v for k, v in skill_descriptions.items() if v}
