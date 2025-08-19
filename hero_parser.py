@@ -374,7 +374,19 @@ def parse_direct_effect(special_data, hero_stats, lang_db, game_db, hero_id: str
         if t := effect_data.get('typeOfTarget'): parts.append(t.lower())
         if s := effect_data.get('sideAffected'): parts.append(s.lower())
         lang_id = ".".join(parts)
-        if effect_data.get("hasFixedPower"): lang_id += ".fixedpower"
+
+        # --- NEW: Add .increment or .decrement for AddMana effects ---
+        if effect_type_str == "AddMana":
+            # Determine the suffix based on the power value.
+            power_value = effect_data.get('powerMultiplierPerMil', 0)
+            if power_value > 0:
+                lang_id += ".increment"
+            elif power_value < 0:
+                lang_id += ".decrement"
+        
+        if effect_data.get("hasFixedPower"): 
+            lang_id += ".fixedpower"
+
     except AttributeError:
         return {"id": "direct_effect_error", "lang_id": "N/A", "params": "{}", "en": "Error parsing", "ja": "解析エラー"}
 
@@ -392,6 +404,13 @@ def parse_direct_effect(special_data, hero_stats, lang_db, game_db, hero_id: str
         total_per_mil = base + inc * (max_level - 1)
         final_val = round(total_per_mil) if effect_data.get("hasFixedPower") else (round(total_per_mil/100) if effect_type_str=="AddMana" else round(total_per_mil/10))
         params[placeholder] = final_val
+    # --- MODIFIED: Handle negative values for decrement mana ---
+    elif base < 0 or inc < 0: # Handle cases like mana reduction
+        total_per_mil = base + inc * (max_level - 1)
+        # Ensure the parameter value is positive for the template (e.g., "Reduces mana by 25%")
+        final_val = abs(round(total_per_mil / 100))
+        params[placeholder] = final_val
+
 
     desc = generate_description(lang_id, params, lang_db)
     return {"lang_id": lang_id, "params": json.dumps(params), **desc}
