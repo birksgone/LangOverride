@@ -312,20 +312,34 @@ def parse_clear_buffs(special_data: dict, lang_db: dict, parsers: dict) -> dict:
         return None
     
     try:
-        buff_to_remove = special_data.get("buffToRemove", "").lower()
+        buff_to_remove_str = special_data.get("buffToRemove", "")
+        buff_to_remove = buff_to_remove_str.lower()
         target_type = special_data.get("buffToRemoveTargetType", "all").lower()
         
-        # --- Smarter sideAffected logic based on your feedback ---
-        side_affected = special_data.get("buffToRemoveSideAffected", "").lower()
+        side_affected = ""
+        # --- NEW: Intelligent sideAffected logic based on game rules ---
+        # 1. Determine side based on the effect type: debuffs are removed from allies, buffs from enemies.
+        if "debuff" in buff_to_remove:
+            side_affected = "allies"
+        elif "buff" in buff_to_remove:
+            side_affected = "enemies"
+
+        # 2. If the rule above doesn't apply (e.g., for "allstatuseffects"), use the old fallback logic.
+        if not side_affected:
+            side_affected = special_data.get("buffToRemoveSideAffected", "").lower()
         if not side_affected:
             side_affected = special_data.get("sideAffected", "").lower()
         if not side_affected:
-            side_affected = special_data.get("directEffect", {}).get("sideAffected", "enemies").lower()
-        # ---
+            side_affected = special_data.get("directEffect", {}).get("sideAffected", "").lower()
         
+        # 3. As a final failsafe, if it's still unknown, default based on effect type again.
+        if not side_affected:
+            side_affected = "allies" if "debuff" in buff_to_remove else "enemies"
+
         lang_id = f"specials.v2.clearbuffs.{buff_to_remove}.{target_type}.{side_affected}"
         
-        if lang_id + ".latest" in lang_db:
+        # Check for ".latest" version if the base one doesn't exist but the latest one does.
+        if lang_id not in lang_db and lang_id + ".latest" in lang_db:
             lang_id += ".latest"
 
         description = generate_description(lang_id, {}, lang_db)
@@ -339,9 +353,11 @@ def parse_clear_buffs(special_data: dict, lang_db: dict, parsers: dict) -> dict:
             **description
         }
     except Exception as e:
-        warning_message = f"Error parsing clear_buffs: {e}"
-        if "warnings_list" in parsers and warning_message not in parsers["warnings_list"]:
+        warning_message = f"Error parsing clear_buffs for '{special_data.get('id', 'Unknown Special')}': {e}"
+        # Use a unique set to avoid spamming the log with the same warning
+        if "warnings_list" in parsers and warning_message not in parsers.get("unique_warnings_set", set()):
              parsers["warnings_list"].append(warning_message)
+             parsers["unique_warnings_set"].add(warning_message)
         return None
 
 
