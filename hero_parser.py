@@ -419,7 +419,7 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
     if not properties_list: return [], []
     
     parsed_items = []
-    warnings = [] # Local list to aggregate warnings from this function's scope
+    warnings = [] 
     main_max_level = special_data.get("maxLevel", 8)
     parsers["main_max_level"] = main_max_level
     prop_lang_subset = parsers['prop_lang_subset']
@@ -436,74 +436,58 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
         mana_speed_id = parsers.get("hero_mana_speed_id")
         property_type = prop_data.get("propertyType")
         
-        container_types = {
-            "changing_tides": "RotatingSpecial",
-            "charge_ninja": "ChargedSpecial",
-            "charge_magic": "ChargedSpecial"
-        }
-
+        container_types = { "changing_tides": "RotatingSpecial", "charge_ninja": "ChargedSpecial", "charge_magic": "ChargedSpecial" }
         if mana_speed_id in container_types and property_type == container_types[mana_speed_id]:
             container_lang_ids = { "changing_tides": "specials.v2.property.evolving_special", "charge_ninja": "specials.v2.property.chargedspecial.3", "charge_magic": "specials.v2.property.chargedspecial.2" }
             container_headings = { "changing_tides": {"en": ["1st:", "2nd:"], "ja": ["第1:", "第2:"]}, "charge_ninja": {"en": ["x1 Mana Charge:", "x2 Mana Charge:", "x3 Mana Charge:"], "ja": ["x1マナチャージ:", "x2マナチャージ:", "x3マナチャージ:"]}, "charge_magic": {"en": ["x1 Mana Charge:", "x2 Mana Charge:"], "ja": ["x1マナチャージ:", "x2マナチャージ:"]} }
-
             container_lang_id = container_lang_ids.get(mana_speed_id)
             container_desc = generate_description(container_lang_id, {}, lang_db)
-            
             nested_effects = []
             sub_specials_list = prop_data.get("specialIds", [])
             headings = container_headings.get(mana_speed_id, {})
-
             for i, sub_special_data in enumerate(sub_specials_list):
                 if not isinstance(sub_special_data, dict) or not sub_special_data: continue
-
                 heading_en = headings.get("en", [])[i] if i < len(headings.get("en", [])) else f"Level {i+1}:"
                 heading_ja = headings.get("ja", [])[i] if i < len(headings.get("ja", [])) else f"レベル {i+1}:"
                 nested_effects.append({"id": "heading", "description_en": heading_en, "description_ja": heading_ja})
-                
-                # --- MODIFIED: Handle return values from other parsers ---
                 if "directEffect" in sub_special_data:
-                    # direct_effect parser is simple and doesn't return warnings yet
                     nested_effects.append(parsers['direct_effect'](sub_special_data, hero_stats, lang_db, game_db, hero_id, rules, parsers))
                 if "properties" in sub_special_data:
                     parsed_props, new_warnings = parsers['properties'](sub_special_data.get("properties", []), sub_special_data, hero_stats, lang_db, game_db, hero_id, rules, parsers)
-                    nested_effects.extend(parsed_props)
-                    warnings.extend(new_warnings)
+                    nested_effects.extend(parsed_props); warnings.extend(new_warnings)
                 if "statusEffects" in sub_special_data:
                     parsed_ses, new_warnings = parsers['status_effects'](sub_special_data.get("statusEffects", []), sub_special_data, hero_stats, lang_db, game_db, hero_id, rules, parsers)
-                    nested_effects.extend(parsed_ses)
-                    warnings.extend(new_warnings)
-
-            parsed_items.append({ "id": prop_id, "lang_id": container_lang_id, "description_en": container_desc["en"], "description_ja": container_desc["ja"], "tooltip_en": "", "tooltip_ja": "", "params": "{}", "nested_effects": nested_effects })
+                    nested_effects.extend(parsed_ses); warnings.extend(new_warnings)
+            parsed_items.append({ "id": prop_id, "lang_id": container_lang_id, "description_en": container_desc["en"], "description_ja": container_desc["ja"], "params": "{}", "nested_effects": nested_effects })
             continue
 
         lang_id = rules.get("lang_overrides", {}).get("specific", {}).get(hero_id, {}).get(prop_id)
         if not lang_id: lang_id = rules.get("lang_overrides", {}).get("common", {}).get(prop_id)
-        # --- MODIFIED: Call the new find_best_lang_id and handle its tuple return ---
         if not lang_id:
             lang_id, warning = find_best_lang_id(prop_data, prop_lang_subset, parsers, parent_block=special_data)
-            if warning: warnings.append(warning) # Add warning to our local list
+            if warning: warnings.append(warning)
 
         if not lang_id:
-            parsed_items.append({ "id": prop_id, "lang_id": "SEARCH_FAILED", "description_en": f"Failed to find template for {prop_id}", "description_ja": f"テンプレート検索失敗: {prop_id}", "tooltip_en": "", "tooltip_ja": "", "params": "{}", "nested_effects": [] })
+            parsed_items.append({ "id": prop_id, "lang_id": "SEARCH_FAILED", "description_en": f"Failed for {prop_id}", "params": "{}" })
             continue
 
-        lang_params, is_modifier_effect = {}, 'modifier' in prop_data.get('propertyType', '').lower()
+        # --- Main Description Parameter Resolution ---
+        lang_params = {}
         main_template_text = lang_db.get(lang_id, {}).get("en", "")
-        extra_lang_id = '.'.join(lang_id.split('.')[:4]) + ".extra"
-        extra_template_text = lang_db.get(extra_lang_id, {}).get("en", "")
-        all_placeholders = set(re.findall(r'\{(\w+)\}', main_template_text + extra_template_text))
+        placeholders = set(re.findall(r'\{(\w+)\}', main_template_text))
         search_context = {**prop_data, "maxLevel": main_max_level}
-
-        for p_holder in all_placeholders:
-            if p_holder in lang_params: continue
-            value, _ = find_and_calculate_value(p_holder, search_context, main_max_level, hero_id, rules, is_modifier=is_modifier_effect)
+        for p_holder in placeholders:
+            value, _ = find_and_calculate_value(p_holder, search_context, main_max_level, hero_id, rules, is_modifier='modifier' in prop_data.get('propertyType', '').lower())
             if value is not None: lang_params[p_holder] = value
         
-        if 'MAX' in all_placeholders and 'FIXEDPOWER' in lang_params: lang_params['MAX'] = lang_params['FIXEDPOWER'] * 2
-        if 'MIN' in all_placeholders and 'FIXEDPOWER' in lang_params: lang_params['MIN'] = math.floor(lang_params['FIXEDPOWER'] / 2)
+        if 'MAX' in placeholders and 'FIXEDPOWER' in lang_params: lang_params['MAX'] = lang_params['FIXEDPOWER'] * 2
+        if 'MIN' in placeholders and 'FIXEDPOWER' in lang_params: lang_params['MIN'] = math.floor(lang_params['FIXEDPOWER'] / 2)
 
+        formatted_params = {k: format_value(v) for k, v in lang_params.items()}
+        main_desc = generate_description(lang_id, formatted_params, lang_db)
+
+        # --- Nested Effects Parsing ---
         nested_effects = []
-        # --- MODIFIED: Handle return values from status_effects parser ---
         if 'statusEffectCollections' in prop_data:
             for collection in prop_data['statusEffectCollections']:
                 collection_name = collection.get('collectionNameOverride', '')
@@ -513,27 +497,50 @@ def parse_properties(properties_list: list, special_data: dict, hero_stats: dict
                 nested_effects.extend(parsed_collection)
         if 'statusEffects' in prop_data:
             parsed_ses, new_warnings = parsers['status_effects'](prop_data['statusEffects'], special_data, hero_stats, lang_db, game_db, hero_id, rules, parsers)
-            nested_effects.extend(parsed_ses)
-            warnings.extend(new_warnings)
+            nested_effects.extend(parsed_ses); warnings.extend(new_warnings)
 
-        template_str_for_check = main_template_text + extra_template_text
-        formatted_params = {}
-        for k, v in lang_params.items():
-            formatted_val = format_value(v)
-            is_percentage = f"{{{k}}}" in template_str_for_check and "%" in template_str_for_check
-            if isinstance(v, (int, float)) and v > 0 and k.upper() not in ["TURNS", "DAMAGE", "MAX", "MIN", "FIXEDPOWER", "BASEPOWER", "MAXSTACK"] and is_percentage:
-                 formatted_params[k] = f"+{formatted_val}"
-            else: formatted_params[k] = formatted_val
-        for p in all_placeholders:
-             if p not in formatted_params: formatted_params[p] = f"{{{p}}}"
+        # --- NEW: Tooltip (Extra Description) Parsing Logic ---
+        extra_info = {}
+        prop_type_lower = prop_data.get("propertyType", "").lower()
+        if prop_type_lower in game_db.get('extra_description_keys', set()):
+            extra_lang_id = f"specials.v2.property.extra.{prop_type_lower}"
+            if extra_lang_id in lang_db:
+                extra_params = {}
+                extra_template_text = lang_db.get(extra_lang_id, {}).get("en", "")
+                extra_placeholders = set(re.findall(r'\{(\w+)\}', extra_template_text))
+                
+                # Inherit params from main description if placeholder exists in both
+                for p in extra_placeholders:
+                    if p in lang_params: extra_params[p] = lang_params[p]
 
-        main_desc = generate_description(lang_id, formatted_params, lang_db)
-        tooltip_desc = generate_description(extra_lang_id, formatted_params, lang_db) if extra_lang_id in lang_db else {"en": "", "ja": ""}
-        for d in [main_desc, tooltip_desc]:
-            d['en'] = re.sub(r'\n\s*\n', '\n', d['en']).strip()
-            d['ja'] = re.sub(r'\n\s*\n', '\n', d['ja']).strip()
+                # Find any remaining params needed only for the tooltip
+                remaining_placeholders = extra_placeholders - set(extra_params.keys())
+                for p_holder in remaining_placeholders:
+                    value, _ = find_and_calculate_value(p_holder, search_context, main_max_level, hero_id, rules, is_modifier=False)
+                    if value is not None: extra_params[p_holder] = value
 
-        parsed_items.append({ "id": prop_id, "lang_id": lang_id, "description_en": main_desc["en"], "description_ja": main_desc["ja"], "tooltip_en": tooltip_desc["en"], "tooltip_ja": tooltip_desc["ja"], "params": json.dumps(lang_params), "nested_effects": nested_effects })
+                formatted_extra_params = {k: format_value(v) for k, v in extra_params.items()}
+                extra_desc = generate_description(extra_lang_id, formatted_extra_params, lang_db)
+                
+                extra_info = {
+                    "lang_id": extra_lang_id,
+                    "params": json.dumps(extra_params),
+                    "en": re.sub(r'\n\s*\n', '\n', extra_desc.get("en", "")).strip(),
+                    "ja": re.sub(r'\n\s*\n', '\n', extra_desc.get("ja", "")).strip()
+                }
+
+        # --- Final Assembly ---
+        result_item = {
+            "id": prop_id,
+            "lang_id": lang_id,
+            "params": json.dumps(lang_params),
+            "nested_effects": nested_effects,
+            **main_desc
+        }
+        if extra_info:
+            result_item["extra"] = extra_info
+        
+        parsed_items.append(result_item)
     
     return parsed_items, warnings
 
@@ -541,7 +548,7 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
     if not status_effects_list: return [], []
     
     parsed_items = []
-    warnings = [] # Local list to aggregate warnings
+    warnings = []
     main_max_level = special_data.get("maxLevel", 8)
     se_lang_subset = parsers['se_lang_subset']
     
@@ -555,24 +562,18 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
         
         lang_id = rules.get("lang_overrides", {}).get("specific", {}).get(hero_id, {}).get(effect_id)
         if not lang_id: lang_id = rules.get("lang_overrides", {}).get("common", {}).get(effect_id)
-        # --- MODIFIED: Call the new find_best_lang_id and handle its tuple return ---
         if not lang_id:
             lang_id, warning = find_best_lang_id(combined_details, se_lang_subset, parsers, parent_block=special_data)
             if warning: warnings.append(warning)
 
         if not lang_id:
-            parsed_items.append({
-                "id": effect_id, "lang_id": "SEARCH_FAILED",
-                "en": f"Failed to find template for {effect_id}", "ja": f"テンプレート検索失敗: {effect_id}",
-                "params": "{}", "nested_effects": []
-            })
+            parsed_items.append({ "id": effect_id, "lang_id": "SEARCH_FAILED", "en": f"Failed for {effect_id}", "params": "{}" })
             continue
 
-        lang_params, is_modifier_effect = {}, 'modifier' in combined_details.get('statusEffect', '').lower()
+        # --- Main Description Parameter Resolution ---
+        lang_params = {}
         if (turns := combined_details.get("turns", 0)) > 0: lang_params["TURNS"] = turns
-        
         search_context = {**combined_details, "maxLevel": main_max_level}
-        
         template_text_en = lang_db.get(lang_id, {}).get("en", "")
         placeholders = set(re.findall(r'\{(\w+)\}', template_text_en))
         
@@ -580,33 +581,69 @@ def parse_status_effects(status_effects_list: list, special_data: dict, hero_sta
             if p_holder in lang_params: continue
             value, found_key = find_and_calculate_value(
                 p_holder, search_context, main_max_level, hero_id, rules,
-                is_modifier=is_modifier_effect
+                is_modifier='modifier' in combined_details.get('statusEffect', '').lower()
             )
-            
             if value is not None:
                 if p_holder.upper() == "DAMAGE" and "permil" in (found_key or "").lower():
                     turns_for_calc = combined_details.get("turns", 0)
                     is_total = "over {TURNS} turns" in template_text_en
                     damage_per_turn = math.floor((value / 100) * hero_stats.get("max_attack", 0))
                     lang_params[p_holder] = damage_per_turn * (turns_for_calc or 1) if is_total else damage_per_turn
-                else: 
-                    lang_params[p_holder] = value
+                else: lang_params[p_holder] = value
         
+        formatted_params = {k: format_value(v) for k, v in lang_params.items()}
+        main_desc = generate_description(lang_id, formatted_params, lang_db)
+
+        # --- Nested Effects Parsing ---
         nested_effects = []
-        # --- MODIFIED: Handle return values from the recursive call ---
         if 'statusEffectsToAdd' in combined_details:
              parsed_nested_ses, new_warnings = parsers['status_effects'](combined_details['statusEffectsToAdd'], special_data, hero_stats, lang_db, game_db, hero_id, rules, parsers)
              nested_effects.extend(parsed_nested_ses)
              warnings.extend(new_warnings)
 
-        formatted_params = {k: format_value(v) for k, v in lang_params.items()}
-        descriptions = generate_description(lang_id, formatted_params, lang_db)
-        descriptions['en'], descriptions['ja'] = re.sub(r'\n\s*\n', '\n', descriptions['en']).strip(), re.sub(r'\n\s*\n', '\n', descriptions['ja']).strip()
+        # --- NEW: Tooltip (Extra Description) Parsing Logic ---
+        extra_info = {}
+        status_effect_type = combined_details.get("statusEffect", "").lower()
+        if status_effect_type in game_db.get('extra_description_keys', set()):
+            extra_lang_id = f"specials.v2.statuseffect.extra.{status_effect_type}"
+            if 'noturns' in lang_id: # Handle cases like '...noturns.debuff'
+                 extra_lang_id = extra_lang_id.replace('.extra.', '.extra.noturns.')
+
+            if extra_lang_id in lang_db:
+                extra_params = {}
+                extra_template_text = lang_db.get(extra_lang_id, {}).get("en", "")
+                extra_placeholders = set(re.findall(r'\{(\w+)\}', extra_template_text))
+                
+                for p in extra_placeholders:
+                    if p in lang_params: extra_params[p] = lang_params[p]
+                
+                remaining_placeholders = extra_placeholders - set(extra_params.keys())
+                for p_holder in remaining_placeholders:
+                    value, _ = find_and_calculate_value(p_holder, search_context, main_max_level, hero_id, rules, is_modifier=False)
+                    if value is not None: extra_params[p_holder] = value
+
+                formatted_extra_params = {k: format_value(v) for k, v in extra_params.items()}
+                extra_desc = generate_description(extra_lang_id, formatted_extra_params, lang_db)
+                
+                extra_info = {
+                    "lang_id": extra_lang_id,
+                    "params": json.dumps(extra_params),
+                    "en": re.sub(r'\n\s*\n', '\n', extra_desc.get("en", "")).strip(),
+                    "ja": re.sub(r'\n\s*\n', '\n', extra_desc.get("ja", "")).strip()
+                }
+
+        # --- Final Assembly ---
+        result_item = {
+            "id": effect_id,
+            "lang_id": lang_id,
+            "params": json.dumps(lang_params),
+            "nested_effects": nested_effects,
+            **main_desc
+        }
+        if extra_info:
+            result_item["extra"] = extra_info
         
-        parsed_items.append({
-            "id": effect_id, "lang_id": lang_id, "params": json.dumps(lang_params),
-            "nested_effects": nested_effects, **descriptions
-        })
+        parsed_items.append(result_item)
         
     return parsed_items, warnings
 
@@ -614,7 +651,7 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
     if not familiars_list: return [], []
     
     parsed_items = []
-    warnings = [] # Local list to aggregate warnings
+    warnings = []
     main_max_level = special_data.get("maxLevel", 8)
     
     all_familiar_lang_ids = [k for k in lang_db if k.startswith("specials.v2.")]
@@ -626,75 +663,95 @@ def parse_familiars(familiars_list: list, special_data: dict, hero_stats: dict, 
         primary_candidates = [k for k in all_familiar_lang_ids if familiar_id in k]
         lang_id, warning = None, None
         
-        # --- MODIFIED: Call the new find_best_lang_id and handle its tuple return ---
         if primary_candidates:
             lang_id, warning = find_best_lang_id(familiar_instance, primary_candidates, parsers)
         else:
             lang_id, warning = find_best_lang_id(familiar_instance, all_familiar_lang_ids, parsers)
-        
         if warning: warnings.append(warning)
 
         if not lang_id:
             parsed_items.append({ "id": familiar_id, "lang_id": "SEARCH_FAILED", "description_en": f"Failed for familiar {familiar_id}", "nested_effects": []})
             continue
 
+        # --- Main Description Parameter Resolution ---
         lang_params = {}
         template_text = lang_db.get(lang_id, {}).get("en", "")
         placeholders = set(re.findall(r'\{(\w+)\}', template_text))
-
         log_entry = {'hero_id': hero_id, 'familiar_id': familiar_id}
-
         health_val = familiar_instance.get('healthPerMil', 0)
         inc_val_health = familiar_instance.get('healthPerLevelPerMil', 0)
         final_health = (health_val + inc_val_health * (main_max_level - 1)) / 10.0
         lang_params['FAMILIARHEALTHPERCENT'] = final_health
-        log_entry['raw_healthPerMil'] = health_val
-        log_entry['calculated_health'] = final_health
+        log_entry.update({'raw_healthPerMil': health_val, 'calculated_health': final_health})
         
         attack_found = False
         if effects := familiar_instance.get('effects'):
             for effect in effects:
                 if isinstance(effect, dict) and 'attackPercentPerMil' in effect:
                     attack_val = effect.get('attackPercentPerMil', 0)
-                    inc_val_attack = 0
-                    if "parasite" in familiar_instance.get("familiarType", "").lower():
-                        inc_val_attack = effect.get('attackPercentIncrementPerLevelPerMil', 0)
+                    inc_val_attack = effect.get('attackPercentIncrementPerLevelPerMil', 0) if "parasite" in familiar_instance.get("familiarType", "").lower() else 0
                     final_attack = (attack_val + inc_val_attack * (main_max_level - 1)) / 10.0
                     lang_params['FAMILIARATTACK'] = final_attack
-                    log_entry['raw_attackPercentPerMil'] = attack_val
-                    log_entry['raw_attackIncrement'] = inc_val_attack
-                    log_entry['calculated_attack'] = final_attack
+                    log_entry.update({'raw_attackPercentPerMil': attack_val, 'raw_attackIncrement': inc_val_attack, 'calculated_attack': final_attack})
                     attack_found = True
                     break
-        
         if not attack_found: log_entry['raw_attackPercentPerMil'] = 'NOT_FOUND'
-
         parsers["familiar_parameter_log"].append(log_entry)
         
         other_placeholders = placeholders - set(lang_params.keys())
         for p_holder in other_placeholders:
-            value, _ = find_and_calculate_value(
-                p_holder, familiar_instance, main_max_level, hero_id, rules,
-                is_modifier=False,
-                ignore_keywords=['monster']
-            )
+            value, _ = find_and_calculate_value(p_holder, familiar_instance, main_max_level, hero_id, rules, is_modifier=False, ignore_keywords=['monster'])
             if value is not None: lang_params[p_holder] = value
         
         formatted_params = {k: format_value(v) for k, v in lang_params.items()}
         main_desc = generate_description(lang_id, formatted_params, lang_db)
         main_desc['en'], main_desc['ja'] = main_desc['en'].replace('[*]', '\n・').strip(), main_desc['ja'].replace('[*]', '\n・').strip()
         
+        # --- Nested Effects (Familiar Effects) Parsing ---
         nested_effects = []
-        # --- MODIFIED: Handle return values from the helper function ---
         if 'effects' in familiar_instance:
             nested_effects, new_warnings = _parse_familiar_effects(familiar_instance, lang_db, hero_stats, game_db, hero_id, rules, parsers)
             warnings.extend(new_warnings)
 
-        parsed_items.append({
-            "id": familiar_id, "lang_id": lang_id,
-            "description_en": main_desc['en'], "description_ja": main_desc['ja'],
-            "params": json.dumps(lang_params), "nested_effects": nested_effects
-        })
+        # --- NEW: Tooltip (Extra Description) Parsing Logic for Familiar Type ---
+        extra_info = {}
+        familiar_type = familiar_instance.get("familiarType", "").lower()
+        if familiar_type in game_db.get('extra_description_keys', set()):
+            extra_lang_id = f"familiar.type.extra.{familiar_type}"
+            if extra_lang_id in lang_db:
+                # Familiartype tooltips currently don't seem to have params, but we build the logic for the future.
+                extra_params = {}
+                extra_template_text = lang_db.get(extra_lang_id, {}).get("en", "")
+                extra_placeholders = set(re.findall(r'\{(\w+)\}', extra_template_text))
+                
+                search_context = {**familiar_instance, "maxLevel": main_max_level}
+                for p_holder in extra_placeholders:
+                    value, _ = find_and_calculate_value(p_holder, search_context, main_max_level, hero_id, rules, is_modifier=False)
+                    if value is not None: extra_params[p_holder] = value
+
+                formatted_extra_params = {k: format_value(v) for k, v in extra_params.items()}
+                extra_desc = generate_description(extra_lang_id, formatted_extra_params, lang_db)
+                
+                extra_info = {
+                    "lang_id": extra_lang_id,
+                    "params": json.dumps(extra_params),
+                    "en": re.sub(r'\n\s*\n', '\n', extra_desc.get("en", "")).strip(),
+                    "ja": re.sub(r'\n\s*\n', '\n', extra_desc.get("ja", "")).strip()
+                }
+
+        # --- Final Assembly ---
+        result_item = {
+            "id": familiar_id,
+            "lang_id": lang_id,
+            "params": json.dumps(lang_params),
+            "nested_effects": nested_effects,
+            "description_en": main_desc['en'], 
+            "description_ja": main_desc['ja'],
+        }
+        if extra_info:
+            result_item["extra"] = extra_info
+        
+        parsed_items.append(result_item)
         
     return parsed_items, warnings
 
@@ -703,7 +760,7 @@ def _parse_familiar_effects(familiar_instance: dict, lang_db: dict, hero_stats: 
     if not effects_list: return [], []
     
     parsed_effects = []
-    warnings = [] # Local list to aggregate warnings
+    warnings = []
     main_max_level = parsers.get("main_max_level", 8)
     familiar_id = familiar_instance.get("id", "")
     
@@ -714,33 +771,22 @@ def _parse_familiar_effects(familiar_instance: dict, lang_db: dict, hero_stats: 
         if not effect_id: continue
         
         context_block = {**familiar_instance, **effect_data}
-        
         effect_type_keyword = effect_data.get('effectType', "").lower()
         
-        primary_candidates = [
-            k for k in all_effect_lang_ids 
-            if (effect_type_keyword and effect_type_keyword in k) or (effect_id and effect_id in k)
-        ]
+        primary_candidates = [k for k in all_effect_lang_ids if (effect_type_keyword and effect_type_keyword in k) or (effect_id and effect_id in k)]
         
         lang_id, warning = None, None
-        # --- MODIFIED: Call the new find_best_lang_id and handle its tuple return ---
         if primary_candidates:
             lang_id, warning = find_best_lang_id(context_block, primary_candidates, parsers)
         else:
             lang_id, warning = find_best_lang_id(context_block, all_effect_lang_ids, parsers)
-            
         if warning: warnings.append(warning)
 
         if not lang_id:
-            parsed_effects.append({
-                "id": effect_id, "lang_id": "SEARCH_FAILED",
-                "description_en": f"Failed for familiar effect {effect_id}",
-                "en": f"Failed for familiar effect {effect_id}",
-                "ja": f"Failed for familiar effect {effect_id}",
-                "params": "{}",
-            })
+            parsed_effects.append({ "id": effect_id, "lang_id": "SEARCH_FAILED", "en": f"Failed for familiar effect {effect_id}", "params": "{}" })
             continue
 
+        # --- Main Description Parameter Resolution ---
         lang_params = {}
         template_text = lang_db.get(lang_id, {}).get("en", "")
         placeholders = set(re.findall(r'\{(\w+)\}', template_text))
@@ -753,14 +799,47 @@ def _parse_familiar_effects(familiar_instance: dict, lang_db: dict, hero_stats: 
              lang_params['FAMILIAREFFECTFREQUENCY'] = familiar_instance['turnsBetweenNonDamageEffects'] + 1
              
         formatted_params = {k: format_value(v) for k, v in lang_params.items()}
-        descriptions = generate_description(lang_id, formatted_params, lang_db)
-        
-        parsed_effects.append({
+        main_desc = generate_description(lang_id, formatted_params, lang_db)
+
+        # --- NEW: Tooltip (Extra Description) Parsing Logic ---
+        extra_info = {}
+        if effect_type_keyword in game_db.get('extra_description_keys', set()):
+            # Familiar effects have a simpler lang_id structure for tooltips
+            extra_lang_id = f"familiar.statuseffect.extra.{effect_type_keyword}"
+            if extra_lang_id in lang_db:
+                extra_params = {}
+                extra_template_text = lang_db.get(extra_lang_id, {}).get("en", "")
+                extra_placeholders = set(re.findall(r'\{(\w+)\}', extra_template_text))
+                
+                for p in extra_placeholders:
+                    if p in lang_params: extra_params[p] = lang_params[p]
+                
+                remaining_placeholders = extra_placeholders - set(extra_params.keys())
+                for p_holder in remaining_placeholders:
+                    value, _ = find_and_calculate_value(p_holder, context_block, main_max_level, hero_id, rules, is_modifier=False)
+                    if value is not None: extra_params[p_holder] = value
+
+                formatted_extra_params = {k: format_value(v) for k, v in extra_params.items()}
+                extra_desc = generate_description(extra_lang_id, formatted_extra_params, lang_db)
+                
+                extra_info = {
+                    "lang_id": extra_lang_id,
+                    "params": json.dumps(extra_params),
+                    "en": re.sub(r'\n\s*\n', '\n', extra_desc.get("en", "")).strip(),
+                    "ja": re.sub(r'\n\s*\n', '\n', extra_desc.get("ja", "")).strip()
+                }
+
+        # --- Final Assembly ---
+        result_item = {
             "id": effect_id,
             "lang_id": lang_id,
             "params": json.dumps(lang_params),
-            **descriptions
-        })
+            **main_desc
+        }
+        if extra_info:
+            result_item["extra"] = extra_info
+        
+        parsed_effects.append(result_item)
         
     return parsed_effects, warnings
 

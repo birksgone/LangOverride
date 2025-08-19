@@ -31,19 +31,19 @@ FAMILIAR_LOG_PATH = SCRIPT_DIR / "familiar_debug_log.txt"
 
 # --- Formatting & Output Functions ---
 
-def _format_final_description(skill_descriptions: dict, lang: str, skill_types_to_include: list, special_data: dict) -> str:
+def _format_final_description(skill_descriptions: dict, lang: str, skill_types_to_include: list, special_data: dict) -> (str, list):
     """
-    A helper function to format a SPECIFIC LIST of skill types into a single string.
+    Formats a list of skill types into a main description string and a list of tooltips.
+    Returns a tuple: (main_description_string, list_of_tooltip_strings)
     """
     output_lines = []
+    tooltip_lines = [] # New list to collect tooltips
     
     local_skill_types_to_include = list(skill_types_to_include)
 
     if special_data and special_data.get("removeBuffsFirst"):
-        # The 'clear_buffs' key should exist if buffToRemove was present
         if clear_buffs_item := skill_descriptions.get('clear_buffs'):
-            desc_key = f'description_{lang}' if f'description_{lang}' in clear_buffs_item else lang
-            description = clear_buffs_item.get(desc_key, "").strip()
+            description = clear_buffs_item.get(lang, "").strip()
             if description:
                 output_lines.append(f"・{description}")
             if 'clear_buffs' in local_skill_types_to_include:
@@ -53,28 +53,34 @@ def _format_final_description(skill_descriptions: dict, lang: str, skill_types_t
         if not items:
             return
             
+        # Passive skills are displayed in reverse order of definition.
         processed_items = reversed(items) if is_passive else items
 
-        for item in items:
+        for item in processed_items:
             if not isinstance(item, dict):
                 continue
 
             if is_passive:
-                title_key = f'title_{lang}'
-                title = item.get(title_key, "").strip()
+                title = item.get(f'title_{lang}', "").strip()
                 if title:
                     output_lines.append(f"\n- {title} -")
 
-            desc_key = f'description_{lang}' if f'description_{lang}' in item else lang
-            description = item.get(desc_key, "").strip()
-            if not description and lang in item:
-                description = item.get(lang, "").strip()
+            description = item.get(lang, "").strip()
+            # Fallback for older passive skill format
+            if not description: description = item.get(f'description_{lang}', "").strip()
 
             if item.get("id") == "heading":
                 output_lines.append(f"\n{description}")
             elif description:
-                prefix = "" if is_passive and title else "・"
+                # Add bullet point, but not for passive descriptions that follow a title.
+                prefix = "" if is_passive and 'title' in locals() and title else "・"
                 output_lines.append(f"{prefix}{description}")
+
+            # --- NEW: Check for and collect tooltips ---
+            if 'extra' in item and isinstance(item['extra'], dict):
+                tooltip_text = item['extra'].get(lang, "").strip()
+                if tooltip_text:
+                    tooltip_lines.append(tooltip_text)
 
             if 'nested_effects' in item and item['nested_effects']:
                 process_level(item['nested_effects'], is_passive=False)
@@ -92,11 +98,12 @@ def _format_final_description(skill_descriptions: dict, lang: str, skill_types_t
             
         process_level(items_to_process, is_passive=is_passive_skill)
             
-    return "\n".join(line for line in output_lines if line).strip()
+    main_description = "\n".join(line for line in output_lines if line).strip()
+    return main_description, tooltip_lines
 
 
 def write_final_csv(processed_data: list, output_path: Path):
-    """Writes the main, human-readable CSV with separate columns for passives and specials."""
+    """Writes the main, human-readable CSV with separate columns for passives, specials, and tooltips."""
     print(f"\n--- Writing final results to {output_path.name} ---")
     if not processed_data:
         print("Warning: No data to write.")
@@ -108,17 +115,43 @@ def write_final_csv(processed_data: list, output_path: Path):
     for hero in processed_data:
         skills = hero.get('skillDescriptions', {})
         special_context = hero.get('_special_data_context', {})
-        output_rows.append({
+
+        # --- MODIFIED: Unpack tuples from _format_final_description ---
+        passive_en_main, passive_en_tooltips = _format_final_description(skills, 'en', ['passiveSkills'], special_context)
+        passive_ja_main, passive_ja_tooltips = _format_final_description(skills, 'ja', ['passiveSkills'], special_context)
+        ss_en_main, ss_en_tooltips = _format_final_description(skills, 'en', ss_skill_types, special_context)
+        ss_ja_main, ss_ja_tooltips = _format_final_description(skills, 'ja', ss_skill_types, special_context)
+        
+        row = {
             "hero_id": hero.get('id'),
             "hero_name": hero.get('name', 'N/A'),
-            "passive_en": _format_final_description(skills, 'en', ['passiveSkills'], special_context),
-            "passive_ja": _format_final_description(skills, 'ja', ['passiveSkills'], special_context),
-            "ss_en": _format_final_description(skills, 'en', ss_skill_types, special_context),
-            "ss_ja": _format_final_description(skills, 'ja', ss_skill_types, special_context),
-        })
+            "passive_en": passive_en_main,
+            "passive_ja": passive_ja_main,
+            "ss_en": ss_en_main,
+            "ss_ja": ss_ja_main,
+        }
+
+        # --- NEW: Add tooltip columns dynamically ---
+        # Combine tooltips from both passive and special skills for each language
+        all_tooltips_en = passive_en_tooltips + ss_en_tooltips
+        all_tooltips_ja = passive_ja_tooltips + ss_ja_tooltips
+        
+        # Add up to 2 tooltips per language to the row
+        for i in range(2):
+            row[f'extra_en_{i+1}'] = all_tooltips_en[i] if i < len(all_tooltips_en) else ""
+            row[f'extra_ja_{i+1}'] = all_tooltips_ja[i] if i < len(all_tooltips_ja) else ""
+
+        output_rows.append(row)
         
     try:
         df = pd.DataFrame(output_rows)
+        # Define column order to ensure extra columns are at the end
+        column_order = [
+            "hero_id", "hero_name", 
+            "passive_en", "passive_ja", "ss_en", "ss_ja",
+            "extra_en_1", "extra_ja_1", "extra_en_2", "extra_ja_2"
+        ]
+        df = df[column_order]
         df.to_csv(output_path, index=False, encoding='utf-8-sig', quoting=csv.QUOTE_ALL, lineterminator='\n')
         print(f"Successfully saved {len(df)} rows to {output_path.name}.")
     except Exception as e:
@@ -136,38 +169,57 @@ def write_debug_csv(processed_data: list, output_path: Path):
     for hero in processed_data:
         row = {'hero_id': hero.get('id'), 'hero_name': hero.get('name', 'N/A')}
         skills = hero.get('skillDescriptions', {})
+        # Define keys to extract from skill/extra dictionaries
         keys_to_keep = ['id', 'lang_id', 'params', 'collection_name']
+        extra_keys_to_keep = ['lang_id', 'params']
+
+        # Helper function to flatten and add data to the row
+        def update_row_with_item(item, prefix):
+            row.update({f'{prefix}_{k}': v for k, v in item.items() if k != 'nested_effects' and k in keys_to_keep})
+            # --- NEW: Check for and add 'extra' (tooltip) data ---
+            if 'extra' in item and isinstance(item['extra'], dict):
+                row.update({f'{prefix}_extra_{k}': v for k, v in item['extra'].items() if k in extra_keys_to_keep})
 
         if de := skills.get('directEffect'):
-            row.update({f'de_{k}': v for k, v in de.items() if k in keys_to_keep})
+            update_row_with_item(de, 'de')
         if cb := skills.get('clear_buffs'):
-             row.update({f'cb_{k}': v for k, v in cb.items() if k in keys_to_keep})
+            update_row_with_item(cb, 'cb')
+        
         props = skills.get('properties', [])
         for i, p in enumerate(props[:3]):
-            row.update({f'prop_{i+1}_{k}': v for k, v in p.items() if k != 'nested_effects' and k in keys_to_keep})
+            update_row_with_item(p, f'prop_{i+1}')
+            # Handle nested effects within properties
+            if nested_effects := p.get('nested_effects', []):
+                for j, ne in enumerate(nested_effects[:2]):
+                    if isinstance(ne, dict):
+                         update_row_with_item(ne, f'prop_{i+1}_nested_{j+1}')
+
         effects = skills.get('statusEffects', [])
         for i, e in enumerate(effects[:5]):
-            row.update({f'se_{i+1}_{k}': v for k, v in e.items() if k != 'nested_effects' and k in keys_to_keep})
+            update_row_with_item(e, f'se_{i+1}')
+            # Handle nested effects within status effects
+            if nested_effects := e.get('nested_effects', []):
+                for j, ne in enumerate(nested_effects[:2]):
+                    if isinstance(ne, dict):
+                        update_row_with_item(ne, f'se_{i+1}_nested_{j+1}')
+        
         familiars = skills.get('familiars', [])
         for i, f in enumerate(familiars[:2]):
-            row.update({f'fam_{i+1}_{k}': v for k, v in f.items() if k != 'nested_effects' and k in keys_to_keep})
+            update_row_with_item(f, f'fam_{i+1}')
+            # (Note: Familiars will be updated later to also output extra info for their effects)
+
         passives = skills.get('passiveSkills', [])
         for i, ps in enumerate(passives[:3]):
+            # Passives do not have extra info, so no change here
             row.update({f'passive_{i+1}_{k}': v for k, v in ps.items() if k in keys_to_keep})
-        nested_prop_effects = [p.get('nested_effects', []) for p in props[:3]]
-        for i, nested_list in enumerate(nested_prop_effects):
-            if not nested_list: continue
-            for j, ne in enumerate(nested_list[:2]):
-                row.update({f'prop_{i+1}_nested_{j+1}_{k}': v for k, v in ne.items() if k in keys_to_keep})
-        nested_se_effects = [e.get('nested_effects', []) for e in effects[:5]]
-        for i, nested_list in enumerate(nested_se_effects):
-            if not nested_list: continue
-            for j, ne in enumerate(nested_list[:2]):
-                 row.update({f'se_{i+1}_nested_{j+1}_{k}': v for k, v in ne.items() if k in keys_to_keep})
-        
+
         all_rows.append(row)
+        
     try:
         df = pd.DataFrame(all_rows)
+        # Sort columns alphabetically for consistency, hero_id and hero_name first
+        cols = sorted([col for col in df.columns if col not in ['hero_id', 'hero_name']])
+        df = df[['hero_id', 'hero_name'] + cols]
         df.to_csv(output_path, index=False, encoding='utf-8-sig', quoting=csv.QUOTE_ALL, lineterminator='\n')
         print(f"Successfully saved {len(df)} rows to {output_path.name}.")
     except Exception as e:

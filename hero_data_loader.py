@@ -167,6 +167,23 @@ def load_game_data() -> dict:
     
     game_data['passive_skills'] = {ps['id']: ps for ps in battle_config.get('passiveSkills', [])}
 
+    # --- NEW: Load and consolidate keys that have extra descriptions (tooltips) ---
+    extra_desc_keys = set()
+    key_groups = [
+        "statusEffectsWithExtraDescription",
+        "specialPropertiesWithExtraDescription",
+        "familiarEffectsWithExtraDescription",
+        "familiarTypesWithExtraDescription"
+    ]
+    for key_group in key_groups:
+        # Lowercase all keys for case-insensitive matching later
+        keys = [k.lower() for k in battle_config.get(key_group, [])]
+        extra_desc_keys.update(keys)
+    
+    game_data['extra_description_keys'] = extra_desc_keys
+    print(f" -> Found {len(extra_desc_keys)} unique keys with extra descriptions (tooltips).")
+    # ---
+
     game_data['master_db'] = {
         **game_data['character_specials'],
         **game_data['special_properties'],
