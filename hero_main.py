@@ -385,7 +385,9 @@ def main():
             'properties': parse_properties, 'status_effects': parse_status_effects,
             'familiars': parse_familiars, 'passive_skills': parse_passive_skills,
             'se_lang_subset': [key for key in language_db if key.startswith("specials.v2.statuseffect.")],
-            'prop_lang_subset': [key for key in language_db if key.startswith("specials.v2.property.")]
+            'prop_lang_subset': [key for key in language_db if key.startswith("specials.v2.property.")],
+            # --- NEW: Pre-filter all lang_ids that contain '.extra' for efficient searching ---
+            'extra_lang_ids': [key for key in language_db if '.extra' in key]
         }
         
         final_hero_data = phase_two_parse_skills(debug_data_from_file, language_db, game_db, hero_stats_db, rules, parsers)
@@ -393,7 +395,6 @@ def main():
         write_final_csv(final_hero_data, FINAL_CSV_PATH)
         write_debug_csv(final_hero_data, DEBUG_CSV_PATH)
         
-        # --- NEW: Write the new parameter log to a CSV file ---
         param_log = parsers.get('familiar_parameter_log', [])
         if param_log:
             param_log_path = SCRIPT_DIR / "familiar_parameter_log.csv"
