@@ -163,25 +163,30 @@ def find_and_calculate_value(p_holder: str, data_block: dict, max_level: int, he
         
     best_candidate = sorted(candidates, key=lambda x: (-x['score'], len(x['key'])))[0]
     found_key = best_candidate['key']
-
     base_val = flat_data.get(found_key, 0)
     
-    base_key_name = found_key.split('_')[-1]
-    inc_key_patterns = [
-        base_key_name.replace("permil", "incrementperlevelpermil"),
-        base_key_name.replace("power", "incrementperlevel"),
-        re.sub(r'([a-z])([A-Z])', r'\1Increment\2', found_key).lower(),
-        base_key_name + "incrementperlevel"
-    ]
-    if 'permil' in base_key_name:
-        inc_key_patterns.append(base_key_name.replace("permil", "incrementperlevelpermil"))
-    
+    # --- NEW: Refined logic to find the increment key based on expert knowledge ---
     inc_key = None
-    flat_keys_lower = {k.lower(): k for k in flat_data.keys()}
-    for pattern in inc_key_patterns:
-        if pattern in flat_keys_lower:
-            inc_key = flat_keys_lower[pattern]
-            break
+    # Pattern 1: For keys like "damageDeflectionPerMil" -> "damageDeflectionPerLevelPerMil"
+    if found_key.endswith("PerMil"):
+        potential_inc_key = found_key.replace("PerMil", "PerLevelPerMil")
+        if potential_inc_key in flat_data:
+            inc_key = potential_inc_key
+    
+    # Pattern 2: For keys like "powerMultiplierPerMil" -> "powerMultiplierIncrementPerLevelPerMil"
+    if not inc_key:
+        potential_inc_key = found_key.replace("PerMil", "IncrementPerLevelPerMil")
+        if potential_inc_key in flat_data:
+            inc_key = potential_inc_key
+
+    # Pattern 3: For keys like "basePower" -> "basePowerIncrementPerLevel" (fallback)
+    if not inc_key:
+        if found_key.islower():
+             potential_inc_key = found_key + "incrementperlevel"
+        else:
+             potential_inc_key = re.sub(r'([a-z])([A-Z])', r'\1IncrementPerLevel\2', found_key)
+        if potential_inc_key in flat_data:
+            inc_key = potential_inc_key
 
     inc_val = flat_data.get(inc_key, 0)
     if not isinstance(inc_val, (int, float)):
